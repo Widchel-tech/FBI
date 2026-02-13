@@ -15,6 +15,7 @@ import OwnerLoginPage from "./pages/OwnerLoginPage";
 import OwnerDashboardPage from "./pages/OwnerDashboardPage";
 import OwnerCasesPage from "./pages/OwnerCasesPage";
 import CaseEditorPage from "./pages/CaseEditorPage";
+import AIGeneratePage from "./pages/AIGeneratePage";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
