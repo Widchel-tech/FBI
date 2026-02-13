@@ -102,6 +102,11 @@ function AppRoutes() {
           <OwnerCasesPage />
         </OwnerRoute>
       } />
+      <Route path="/owner/cases/generate" element={
+        <OwnerRoute>
+          <AIGeneratePage />
+        </OwnerRoute>
+      } />
       <Route path="/owner/cases/new" element={
         <OwnerRoute>
           <CaseEditorPage />
@@ -110,11 +115,6 @@ function AppRoutes() {
       <Route path="/owner/cases/:caseId" element={
         <OwnerRoute>
           <CaseEditorPage />
-        </OwnerRoute>
-      } />
-      <Route path="/owner/cases/generate" element={
-        <OwnerRoute>
-          <AIGeneratePage />
         </OwnerRoute>
       } />
       
