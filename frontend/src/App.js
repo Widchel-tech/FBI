@@ -112,6 +112,11 @@ function AppRoutes() {
           <CaseEditorPage />
         </OwnerRoute>
       } />
+      <Route path="/owner/cases/generate" element={
+        <OwnerRoute>
+          <AIGeneratePage />
+        </OwnerRoute>
+      } />
       
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/" replace />} />
