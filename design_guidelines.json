@@ -1,0 +1,184 @@
+{
+  "design_system": {
+    "identity": {
+      "name": "CASE FILES",
+      "archetype": "The Bureau / Tactical Noir",
+      "tone": "Hyper-realistic, Tense, Official, Bureaucratic, Brutalist",
+      "core_values": ["Clarity", "Tension", "Authority", "Immersion"]
+    },
+    "typography": {
+      "fonts": {
+        "primary_heading": {
+          "name": "Oswald",
+          "weights": ["500", "700"],
+          "usage": "Page Titles, Case Names, Level Headers",
+          "fallback": "sans-serif"
+        },
+        "secondary_heading": {
+          "name": "JetBrains Mono",
+          "weights": ["400", "700"],
+          "usage": "Subheaders, Data Labels, Terminal Text, Evidence Logs",
+          "fallback": "monospace"
+        },
+        "body": {
+          "name": "Inter",
+          "weights": ["300", "400", "500", "600"],
+          "usage": "Long form text, UI elements, Buttons, Inputs",
+          "fallback": "sans-serif"
+        },
+        "special": {
+          "name": "Courier Prime",
+          "weights": ["400"],
+          "usage": "Written Notes, Dossier Content, Interrogations",
+          "fallback": "monospace"
+        }
+      },
+      "scale": {
+        "h1": "text-5xl md:text-7xl tracking-tighter uppercase font-medium",
+        "h2": "text-3xl md:text-5xl tracking-tight uppercase font-medium",
+        "h3": "text-xl md:text-2xl tracking-tight font-medium",
+        "body_lg": "text-lg leading-relaxed text-zinc-300",
+        "body_base": "text-base leading-relaxed text-zinc-400",
+        "caption": "text-xs tracking-widest uppercase text-zinc-500 font-mono",
+        "code": "font-mono text-sm text-emerald-500/80"
+      }
+    },
+    "colors": {
+      "palette": {
+        "background": {
+          "default": "#09090b",
+          "secondary": "#18181b",
+          "tertiary": "#27272a",
+          "paper": "#f4f4f5"
+        },
+        "foreground": {
+          "default": "#fafafa",
+          "muted": "#a1a1aa",
+          "dim": "#52525b"
+        },
+        "primary": {
+          "default": "#fafafa",
+          "foreground": "#18181b"
+        },
+        "accent": {
+          "alert": "#ef4444",
+          "success": "#10b981",
+          "warning": "#f59e0b",
+          "info": "#3b82f6"
+        },
+        "border": {
+          "default": "#27272a",
+          "active": "#52525b"
+        }
+      },
+      "theme_strategy": "Dark Mode Only (Primary). 'Paper Mode' used sparingly for actual case files within the UI."
+    },
+    "spacing": {
+      "container_padding": "p-6 md:p-12",
+      "section_gap": "gap-8 md:gap-16",
+      "element_gap": "gap-4",
+      "grid_strategy": "Bento Grid / Tetris Grid - Asymmetrical and dense."
+    },
+    "visual_enhancers": {
+      "borders": "1px solid border-zinc-800. Sharp edges (rounded-none or rounded-sm max).",
+      "shadows": "shadow-[0_0_15px_rgba(0,0,0,0.5)] for active elements. 'Glow' effects for terminal interactions.",
+      "glassmorphism": "Used sparingly. bg-zinc-950/80 backdrop-blur-md border-b border-white/5 for headers.",
+      "textures": {
+        "grain": "Overlay noise texture on the entire viewport (opacity 3-5%).",
+        "scanlines": "Subtle repeating linear gradient on 'Terminal' or 'Video' components."
+      },
+      "animations": {
+        "hover": "transition-all duration-200 ease-out hover:bg-zinc-800",
+        "redacted": "bg-black text-black hover:text-white hover:bg-transparent transition-colors cursor-help select-none",
+        "typewriter": "Character-by-character reveal for interrogation text."
+      }
+    },
+    "icons": {
+      "library": "lucide-react",
+      "style": "Stroke width 1.5px. Sharp, technical.",
+      "recommendations": {
+        "evidence": "FileText, Fingerprint, Camera",
+        "suspects": "User, Users, VenetianMask",
+        "analysis": "Activity, Microscope, Binary",
+        "navigation": "Folder, LayoutDashboard, Settings"
+      }
+    }
+  },
+  "layout_strategies": {
+    "dashboard": {
+      "structure": "Sidebar (Fixed Left) + Main Content (Scrollable).",
+      "grid": "grid-cols-12 gap-4. Widgets span 3, 4, or 6 columns. Dense packing.",
+      "header": "Minimal. Breadcrumbs + User Status only."
+    },
+    "case_file": {
+      "structure": "Tabbed Interface (Folder Metaphor).",
+      "tabs": ["Overview", "Suspects", "Evidence", "Timeline", "Interrogations"],
+      "visuals": "Looks like physical physical files on a digital desk or a high-tech sleek database."
+    },
+    "landing": {
+      "structure": "Hero (Cinematic) -> Features (Grid) -> Teaser (Terminal).",
+      "hero_style": "Full screen immersive image with heavy vignette and overlay text."
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-white text-black hover:bg-zinc-200 rounded-none uppercase tracking-widest font-bold text-sm h-10 px-8",
+      "destructive": "bg-red-900/20 text-red-500 border border-red-900/50 hover:bg-red-900/40 rounded-none uppercase tracking-widest text-xs h-8 px-4",
+      "ghost": "text-zinc-400 hover:text-white hover:bg-zinc-900 rounded-none uppercase tracking-widest text-xs"
+    },
+    "cards": {
+      "style": "bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 transition-colors rounded-none p-6",
+      "header": "border-b border-zinc-800 pb-4 mb-4 flex justify-between items-center"
+    },
+    "inputs": {
+      "style": "bg-black border border-zinc-800 focus:border-white/50 rounded-none text-zinc-300 placeholder:text-zinc-700 font-mono text-sm h-10"
+    },
+    "modals": {
+      "style": "bg-zinc-950 border border-zinc-700 shadow-2xl rounded-none w-full max-w-2xl"
+    }
+  },
+  "image_assets": {
+    "backgrounds": {
+      "rainy_city": "https://images.unsplash.com/photo-1768066429203-19c3f10b8c6d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzh8MHwxfHNlYXJjaHwyfHx1cmJhbiUyMG5pZ2h0JTIwY2l0eSUyMHJhaW4lMjBub2lyfGVufDB8fHx8MTc3MDk3MTAwOXww&ixlib=rb-4.1.0&q=85",
+      "texture_paper": "https://images.unsplash.com/photo-1706790608211-4c03fd4f4d33?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDJ8MHwxfHNlYXJjaHwyfHxvbGQlMjBwYXBlciUyMHRleHR1cmUlMjBncnVuZ2V8ZW58MHx8fHwxNzcwOTcxMDExfDA&ixlib=rb-4.1.0&q=85",
+      "texture_grunge": "https://images.unsplash.com/photo-1582136610579-2747d46e066c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDJ8MHwxfHNlYXJjaHwzfHxvbGQlMjBwYXBlciUyMHRleHR1cmUlMjBncnVuZ2V8ZW58MHx8fHwxNzcwOTcxMDExfDA&ixlib=rb-4.1.0&q=85",
+      "abstract_black": "https://images.unsplash.com/photo-1582035100994-9ddfc34b1dae?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTJ8MHwxfHNlYXJjaHwxfHxmaW5nZXJwcmludCUyMHRleHR1cmUlMjBibGFjayUyMGJhY2tncm91bmR8ZW58MHx8fHwxNzcwOTcxMDExfDA&ixlib=rb-4.1.0&q=85"
+    },
+    "placeholders": {
+      "evidence_photo": "https://images.unsplash.com/photo-1553540264-9c05c07424ef?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzh8MHwxfHNlYXJjaHwxfHx1cmJhbiUyMG5pZ2h0JTIwY2l0eSUyMHJhaW4lMjBub2lyfGVufDB8fHx8MTc3MDk3MTAwOXww&ixlib=rb-4.1.0&q=85",
+      "suspect_silhouette": "https://images.unsplash.com/photo-1746109191062-9df7d41bfeae?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzh8MHwxfHNlYXJjaHwzfHx1cmJhbiUyMG5pZ2h0JTIwY2l0eSUyMHJhaW4lMjBub2lyfGVufDB8fHx8MTc3MDk3MTAwOXww&ixlib=rb-4.1.0&q=85"
+    }
+  },
+  "instructions_to_main_agent": {
+    "general": [
+      "Use 'sonner' for all toast notifications.",
+      "Implement the 'Anti-AI' look: No soft gradients, no centered layouts, no 'friendly' rounded corners. Everything must be sharp, deliberate, and official.",
+      "Use the 'Redacted' effect for spoilers or locked content.",
+      "Ensure all key interactions have sound feedback (implied visual feedback like borders lighting up).",
+      "Do NOT use 'Inter' for headings. Use 'Oswald' or 'JetBrains Mono'.",
+      "For the 'Case Board', use a drag-and-drop library or a CSS Grid layout that feels cluttered yet organized.",
+      "Strict adherence to Contrast Ratios: Text must be readable against the dark background."
+    ],
+    "file_structure": {
+      "components": "Place UI components in /app/frontend/src/components/ui",
+      "pages": "Place pages in /app/frontend/src/pages",
+      "styles": "Use tailwind classes for 99% of styling. Use custom CSS only for complex animations."
+    }
+  },
+  "universal_guidelines": [
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients.",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "You MUST NOT apply universal transition. Eg: transition: all.",
+    "You MUST NOT center align the app container, ie do not add .App { text-align: center; }.",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style.",
+    "NEVER: use AI assistant Emoji characters like 🤖🧠💭💡🔮 etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Subtle grain textures, noise overlays, custom cursors: separates good from extraordinary.",
+    "Main agent relies on these image URLs. Missing categories = main agent will use placeholder text which is FORBIDDEN.",
+    "Components MUST use named exports (export const ComponentName = ...).",
+    "Pages MUST use default exports (export default function PageName() {...}).",
+    "Use 'sonner' for toasts."
+  ]
+}
