@@ -1,15 +1,20 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, Request
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict
-from typing import List
+from pydantic import BaseModel, Field, ConfigDict, EmailStr
+from typing import List, Optional, Dict, Any
 import uuid
-from datetime import datetime, timezone
-
+from datetime import datetime, timezone, timedelta
+import jwt
+import bcrypt
+import shutil
+from emergentintegrations.llm.chat import LlmChat, UserMessage
+from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionResponse, CheckoutStatusResponse, CheckoutSessionRequest
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -19,54 +24,1181 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Create the main app without a prefix
-app = FastAPI()
+# JWT Config
+JWT_SECRET = os.environ.get('JWT_SECRET', 'default_secret_change_me')
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRATION_HOURS = 24
 
-# Create a router with the /api prefix
+# Upload directory
+UPLOAD_DIR = Path(os.environ.get('UPLOAD_DIR', '/app/uploads'))
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+# Create the main app
+app = FastAPI(title="CASE FILES - FBI Investigation Game")
+
+# Create routers
 api_router = APIRouter(prefix="/api")
 
+# ============== MODELS ==============
 
-# Define Models
-class StatusCheck(BaseModel):
-    model_config = ConfigDict(extra="ignore")  # Ignore MongoDB's _id field
-    
+class UserCreate(BaseModel):
+    username: str
+    email: EmailStr
+    password: str
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class UserResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    username: str
+    email: str
+    role: str
+    career_points: int
+    level: int
+    level_title: str
+    created_at: str
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+    user: UserResponse
+
+class SuspectModel(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    name: str
+    age: int
+    role: str
+    motive_angle: str
+    alibi_summary: str
+    risk_notes: str
+    is_guilty: bool = False
+    portrait_url: Optional[str] = None
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
+class ChoiceModel(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    text: str
+    score_delta: int = 0
+    add_clues: List[str] = []
+    require_clues: List[str] = []
+    next_scene_id: str
+    risk_flag: str = "none"  # none, low, medium, high
 
-# Add your routes to the router instead of directly to app
-@api_router.get("/")
-async def root():
-    return {"message": "Hello World"}
+class SceneModel(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    order: int
+    title: str
+    narration: str
+    is_interview_scene: bool = False
+    is_accusation_scene: bool = False
+    choices: List[ChoiceModel] = []
+    media_urls: List[str] = []
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.model_dump()
-    status_obj = StatusCheck(**status_dict)
+class ClueModel(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    label: str
+    description: str
+    load_bearing: bool = False
+    misdirection: bool = False
+
+class EndingModel(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    type: str  # CLOSED_GOOD, COMPROMISED_BAD
+    title: str
+    narration: str
+    cp_base: int
+    cp_modifiers: Dict[str, int] = {}
+
+class CaseCreate(BaseModel):
+    case_id: str  # FBI-HOM-24-001
+    case_type: str  # HOM, FRAUD, KID, etc.
+    title: str
+    location_county: str
+    location_state: str
+    victim_overview: str
+    summary: str
+    difficulty: int = 1
+    time_limit_minutes: int = 15
+    tags: List[str] = []
+    suspects: List[SuspectModel] = []
+    scenes: List[SceneModel] = []
+    clues: List[ClueModel] = []
+    endings: List[EndingModel] = []
+    published: bool = False
+    patch_notes: List[Dict[str, str]] = []
+    bonus_files: List[Dict[str, str]] = []
+
+class CaseResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    case_id: str
+    case_type: str
+    title: str
+    location_county: str
+    location_state: str
+    victim_overview: str
+    summary: str
+    difficulty: int
+    time_limit_minutes: int
+    tags: List[str]
+    suspects: List[SuspectModel]
+    scenes: List[SceneModel]
+    clues: List[ClueModel]
+    endings: List[EndingModel]
+    published: bool
+    patch_notes: List[Dict[str, str]]
+    bonus_files: List[Dict[str, str]]
+    created_at: str
+    updated_at: str
+
+class PlaySessionStart(BaseModel):
+    case_id: str
+
+class MakeChoiceRequest(BaseModel):
+    session_id: str
+    scene_id: str
+    choice_id: str
+
+class AccusationRequest(BaseModel):
+    session_id: str
+    suspect_id: str
+    clue_ids: List[str]
+
+class InterrogationRequest(BaseModel):
+    session_id: str
+    suspect_id: str
+    question: str
+
+class AIGenerateCaseRequest(BaseModel):
+    case_type: str
+    location_state: str
+    location_county: str
+    suspects_count: int = 4
+    scenes_count: int = 12
+    tone: str = "realistic"
+    difficulty: int = 2
+
+class SubscriptionPackage(BaseModel):
+    package_type: str  # monthly, yearly
+
+class CheckoutRequest(BaseModel):
+    package_type: str
+    origin_url: str
+
+# ============== AUTH HELPERS ==============
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+def verify_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+
+def create_token(user_id: str, role: str) -> str:
+    payload = {
+        "sub": user_id,
+        "role": role,
+        "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRATION_HOURS)
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+def decode_token(token: str) -> dict:
+    try:
+        return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+async def get_current_user(request: Request):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
+    token = auth_header.split(" ")[1]
+    payload = decode_token(token)
+    user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
+
+async def get_owner_user(request: Request):
+    user = await get_current_user(request)
+    if user.get("role") != "owner":
+        raise HTTPException(status_code=403, detail="Owner access required")
+    return user
+
+def get_level_info(cp: int) -> tuple:
+    if cp >= 350:
+        return 5, "TASK FORCE LEAD"
+    elif cp >= 220:
+        return 4, "PROFILER"
+    elif cp >= 120:
+        return 3, "SPECIAL AGENT"
+    elif cp >= 50:
+        return 2, "FIELD AGENT"
+    else:
+        return 1, "ANALYST"
+
+# ============== AUTH ROUTES ==============
+
+@api_router.post("/auth/register", response_model=TokenResponse)
+async def register(data: UserCreate):
+    existing = await db.users.find_one({"email": data.email})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
     
-    # Convert to dict and serialize datetime to ISO string for MongoDB
-    doc = status_obj.model_dump()
-    doc['timestamp'] = doc['timestamp'].isoformat()
+    existing_username = await db.users.find_one({"username": data.username})
+    if existing_username:
+        raise HTTPException(status_code=400, detail="Username already taken")
     
-    _ = await db.status_checks.insert_one(doc)
-    return status_obj
+    user_id = str(uuid.uuid4())
+    level, level_title = get_level_info(0)
+    user_doc = {
+        "id": user_id,
+        "username": data.username,
+        "email": data.email,
+        "password": hash_password(data.password),
+        "role": "player",
+        "career_points": 0,
+        "level": level,
+        "level_title": level_title,
+        "subscription_status": "inactive",
+        "subscription_expires": None,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.users.insert_one(user_doc)
+    
+    token = create_token(user_id, "player")
+    user_response = UserResponse(
+        id=user_id,
+        username=data.username,
+        email=data.email,
+        role="player",
+        career_points=0,
+        level=level,
+        level_title=level_title,
+        created_at=user_doc["created_at"]
+    )
+    return TokenResponse(access_token=token, token_type="bearer", user=user_response)
 
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    # Exclude MongoDB's _id field from the query results
-    status_checks = await db.status_checks.find({}, {"_id": 0}).to_list(1000)
+@api_router.post("/auth/login", response_model=TokenResponse)
+async def login(data: UserLogin):
+    user = await db.users.find_one({"email": data.email}, {"_id": 0})
+    if not user or not verify_password(data.password, user["password"]):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
     
-    # Convert ISO string timestamps back to datetime objects
-    for check in status_checks:
-        if isinstance(check['timestamp'], str):
-            check['timestamp'] = datetime.fromisoformat(check['timestamp'])
-    
-    return status_checks
+    token = create_token(user["id"], user["role"])
+    level, level_title = get_level_info(user.get("career_points", 0))
+    user_response = UserResponse(
+        id=user["id"],
+        username=user["username"],
+        email=user["email"],
+        role=user["role"],
+        career_points=user.get("career_points", 0),
+        level=level,
+        level_title=level_title,
+        created_at=user["created_at"]
+    )
+    return TokenResponse(access_token=token, token_type="bearer", user=user_response)
 
-# Include the router in the main app
+@api_router.get("/auth/me", response_model=UserResponse)
+async def get_me(user=Depends(get_current_user)):
+    level, level_title = get_level_info(user.get("career_points", 0))
+    return UserResponse(
+        id=user["id"],
+        username=user["username"],
+        email=user["email"],
+        role=user["role"],
+        career_points=user.get("career_points", 0),
+        level=level,
+        level_title=level_title,
+        created_at=user["created_at"]
+    )
+
+# ============== OWNER AUTH ==============
+
+@api_router.post("/owner/login", response_model=TokenResponse)
+async def owner_login(data: UserLogin):
+    user = await db.users.find_one({"email": data.email, "role": "owner"}, {"_id": 0})
+    if not user or not verify_password(data.password, user["password"]):
+        raise HTTPException(status_code=401, detail="Invalid owner credentials")
+    
+    token = create_token(user["id"], "owner")
+    level, level_title = get_level_info(user.get("career_points", 0))
+    user_response = UserResponse(
+        id=user["id"],
+        username=user["username"],
+        email=user["email"],
+        role=user["role"],
+        career_points=user.get("career_points", 0),
+        level=level,
+        level_title=level_title,
+        created_at=user["created_at"]
+    )
+    return TokenResponse(access_token=token, token_type="bearer", user=user_response)
+
+# ============== CASE ROUTES (OWNER) ==============
+
+@api_router.post("/owner/cases", response_model=CaseResponse)
+async def create_case(data: CaseCreate, user=Depends(get_owner_user)):
+    case_doc = {
+        "id": str(uuid.uuid4()),
+        **data.model_dump(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.cases.insert_one(case_doc)
+    del case_doc["_id"]
+    return CaseResponse(**case_doc)
+
+@api_router.get("/owner/cases", response_model=List[CaseResponse])
+async def get_owner_cases(user=Depends(get_owner_user)):
+    cases = await db.cases.find({}, {"_id": 0}).to_list(1000)
+    return [CaseResponse(**c) for c in cases]
+
+@api_router.get("/owner/cases/{case_id}", response_model=CaseResponse)
+async def get_owner_case(case_id: str, user=Depends(get_owner_user)):
+    case = await db.cases.find_one({"id": case_id}, {"_id": 0})
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    return CaseResponse(**case)
+
+@api_router.put("/owner/cases/{case_id}", response_model=CaseResponse)
+async def update_case(case_id: str, data: CaseCreate, user=Depends(get_owner_user)):
+    update_doc = {
+        **data.model_dump(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    result = await db.cases.update_one({"id": case_id}, {"$set": update_doc})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Case not found")
+    case = await db.cases.find_one({"id": case_id}, {"_id": 0})
+    return CaseResponse(**case)
+
+@api_router.delete("/owner/cases/{case_id}")
+async def delete_case(case_id: str, user=Depends(get_owner_user)):
+    result = await db.cases.delete_one({"id": case_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Case not found")
+    return {"message": "Case deleted"}
+
+@api_router.post("/owner/cases/{case_id}/publish")
+async def toggle_publish(case_id: str, publish: bool, user=Depends(get_owner_user)):
+    result = await db.cases.update_one(
+        {"id": case_id},
+        {"$set": {"published": publish, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Case not found")
+    return {"message": f"Case {'published' if publish else 'unpublished'}"}
+
+# ============== CASE VALIDATION ==============
+
+@api_router.get("/owner/cases/{case_id}/validate")
+async def validate_case(case_id: str, user=Depends(get_owner_user)):
+    case = await db.cases.find_one({"id": case_id}, {"_id": 0})
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    
+    errors = []
+    warnings = []
+    
+    # Check scene count
+    if len(case.get("scenes", [])) < 10:
+        errors.append(f"Case must have at least 10 scenes (has {len(case.get('scenes', []))})")
+    
+    # Check each scene
+    for scene in case.get("scenes", []):
+        # Check choices
+        if len(scene.get("choices", [])) < 2 or len(scene.get("choices", [])) > 3:
+            errors.append(f"Scene '{scene['title']}' must have 2-3 choices (has {len(scene.get('choices', []))})")
+        
+        # Check narration length
+        word_count = len(scene.get("narration", "").split())
+        if word_count < 90 or word_count > 160:
+            warnings.append(f"Scene '{scene['title']}' narration should be 90-160 words (has {word_count})")
+    
+    # Check for interview scene
+    has_interview = any(s.get("is_interview_scene") for s in case.get("scenes", []))
+    if not has_interview:
+        errors.append("Case must have at least one interview scene")
+    
+    # Check for accusation scene
+    has_accusation = any(s.get("is_accusation_scene") for s in case.get("scenes", []))
+    if not has_accusation:
+        errors.append("Case must have an accusation scene")
+    
+    # Check endings
+    endings = case.get("endings", [])
+    has_closed = any(e.get("type") == "CLOSED_GOOD" for e in endings)
+    has_compromised = any(e.get("type") == "COMPROMISED_BAD" for e in endings)
+    if not has_closed:
+        errors.append("Case must have a CLOSED (GOOD) ending")
+    if not has_compromised:
+        errors.append("Case must have a COMPROMISED (BAD) ending")
+    
+    # Check clue references
+    all_clue_ids = {c["id"] for c in case.get("clues", [])}
+    for scene in case.get("scenes", []):
+        for choice in scene.get("choices", []):
+            for clue in choice.get("add_clues", []):
+                if clue not in all_clue_ids:
+                    warnings.append(f"Choice in '{scene['title']}' references unknown clue: {clue}")
+            for clue in choice.get("require_clues", []):
+                if clue not in all_clue_ids:
+                    warnings.append(f"Choice in '{scene['title']}' requires unknown clue: {clue}")
+    
+    # Check suspects
+    if len(case.get("suspects", [])) < 2:
+        errors.append("Case must have at least 2 suspects")
+    
+    # Check for guilty suspect
+    has_guilty = any(s.get("is_guilty") for s in case.get("suspects", []))
+    if not has_guilty:
+        warnings.append("No suspect marked as guilty (solution)")
+    
+    is_valid = len(errors) == 0
+    return {
+        "is_valid": is_valid,
+        "errors": errors,
+        "warnings": warnings
+    }
+
+# ============== MEDIA UPLOAD ==============
+
+@api_router.post("/owner/upload")
+async def upload_file(file: UploadFile = File(...), user=Depends(get_owner_user)):
+    file_id = str(uuid.uuid4())
+    file_ext = Path(file.filename).suffix
+    new_filename = f"{file_id}{file_ext}"
+    file_path = UPLOAD_DIR / new_filename
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    # Store media record
+    media_doc = {
+        "id": file_id,
+        "original_name": file.filename,
+        "stored_name": new_filename,
+        "url": f"/uploads/{new_filename}",
+        "content_type": file.content_type,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.media.insert_one(media_doc)
+    
+    return {"id": file_id, "url": f"/uploads/{new_filename}"}
+
+@api_router.get("/owner/media")
+async def get_media_library(user=Depends(get_owner_user)):
+    media = await db.media.find({}, {"_id": 0}).to_list(1000)
+    return media
+
+# ============== AI CASE GENERATION ==============
+
+@api_router.post("/owner/cases/generate")
+async def generate_case_ai(data: AIGenerateCaseRequest, user=Depends(get_owner_user)):
+    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="AI service not configured")
+    
+    chat = LlmChat(
+        api_key=api_key,
+        session_id=str(uuid.uuid4()),
+        system_message="""You are an FBI case file generator for a hyper-realistic investigation game. 
+Generate complete case files following strict FBI procedure and chain-of-custody realism.
+Output must be valid JSON only, no markdown or explanations."""
+    ).with_model("openai", "gpt-5.2")
+    
+    prompt = f"""Generate a complete FBI investigation case with:
+- Case Type: {data.case_type}
+- Location: {data.location_county}, {data.location_state}
+- Number of suspects: {data.suspects_count}
+- Number of scenes: {data.scenes_count}
+- Tone: {data.tone}
+- Difficulty: {data.difficulty}/5
+
+Output as JSON with this exact structure:
+{{
+  "case_id": "FBI-{data.case_type}-24-001",
+  "case_type": "{data.case_type}",
+  "title": "Case title",
+  "location_county": "{data.location_county}",
+  "location_state": "{data.location_state}",
+  "victim_overview": "Brief victim description",
+  "summary": "Internal case summary",
+  "difficulty": {data.difficulty},
+  "time_limit_minutes": 15,
+  "tags": [],
+  "suspects": [
+    {{
+      "id": "uuid",
+      "name": "Full Name",
+      "age": 35,
+      "role": "Relationship to victim",
+      "motive_angle": "Potential motive",
+      "alibi_summary": "Alibi details",
+      "risk_notes": "Investigation notes",
+      "is_guilty": false,
+      "portrait_url": null
+    }}
+  ],
+  "scenes": [
+    {{
+      "id": "S0",
+      "order": 0,
+      "title": "Scene Title",
+      "narration": "90-160 word cinematic narration",
+      "is_interview_scene": false,
+      "is_accusation_scene": false,
+      "choices": [
+        {{
+          "id": "uuid",
+          "text": "Choice text",
+          "score_delta": 5,
+          "add_clues": [],
+          "require_clues": [],
+          "next_scene_id": "S1",
+          "risk_flag": "none"
+        }}
+      ],
+      "media_urls": []
+    }}
+  ],
+  "clues": [
+    {{
+      "id": "uuid",
+      "label": "Clue Label",
+      "description": "What the clue reveals",
+      "load_bearing": true,
+      "misdirection": false
+    }}
+  ],
+  "endings": [
+    {{
+      "id": "uuid",
+      "type": "CLOSED_GOOD",
+      "title": "Case Closed",
+      "narration": "Ending narration",
+      "cp_base": 30,
+      "cp_modifiers": {{}}
+    }},
+    {{
+      "id": "uuid", 
+      "type": "COMPROMISED_BAD",
+      "title": "Case Compromised",
+      "narration": "Bad ending narration",
+      "cp_base": 5,
+      "cp_modifiers": {{}}
+    }}
+  ]
+}}
+
+Include at least one interview scene (is_interview_scene: true) with Q/A format in narration.
+Include one accusation scene (is_accusation_scene: true).
+Make one suspect is_guilty: true.
+Include 8-14 clues, 3+ marked as load_bearing.
+Ensure realistic FBI procedure and chain-of-custody logic."""
+
+    try:
+        response = await chat.send_message(UserMessage(text=prompt))
+        # Parse JSON from response
+        import json
+        # Clean response
+        response_text = response.strip()
+        if response_text.startswith("```json"):
+            response_text = response_text[7:]
+        if response_text.startswith("```"):
+            response_text = response_text[3:]
+        if response_text.endswith("```"):
+            response_text = response_text[:-3]
+        
+        case_data = json.loads(response_text)
+        return case_data
+    except Exception as e:
+        logging.error(f"AI generation error: {e}")
+        raise HTTPException(status_code=500, detail=f"AI generation failed: {str(e)}")
+
+# ============== PLAYER CASE ROUTES ==============
+
+@api_router.get("/cases")
+async def get_published_cases(user=Depends(get_current_user)):
+    cases = await db.cases.find(
+        {"published": True},
+        {"_id": 0, "id": 1, "case_id": 1, "title": 1, "case_type": 1, 
+         "location_county": 1, "location_state": 1, "difficulty": 1,
+         "time_limit_minutes": 1, "tags": 1, "victim_overview": 1}
+    ).to_list(100)
+    return cases
+
+@api_router.get("/cases/{case_id}")
+async def get_case_for_play(case_id: str, user=Depends(get_current_user)):
+    case = await db.cases.find_one({"id": case_id, "published": True}, {"_id": 0})
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    # Remove guilty flag from suspects for players
+    for suspect in case.get("suspects", []):
+        suspect.pop("is_guilty", None)
+    return case
+
+# ============== GAMEPLAY ROUTES ==============
+
+@api_router.post("/play/start")
+async def start_play_session(data: PlaySessionStart, user=Depends(get_current_user)):
+    case = await db.cases.find_one({"id": data.case_id, "published": True}, {"_id": 0})
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    
+    session_id = str(uuid.uuid4())
+    first_scene = case["scenes"][0] if case.get("scenes") else None
+    
+    session_doc = {
+        "id": session_id,
+        "user_id": user["id"],
+        "case_id": data.case_id,
+        "current_scene_id": first_scene["id"] if first_scene else None,
+        "score": 0,
+        "clues_collected": [],
+        "procedural_risk": "LOW",
+        "risk_points": 0,
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "ended_at": None,
+        "ending_type": None,
+        "final_score": None,
+        "notes": ""
+    }
+    await db.play_sessions.insert_one(session_doc)
+    
+    return {
+        "session_id": session_id,
+        "case": case,
+        "current_scene": first_scene,
+        "score": 0,
+        "clues_collected": [],
+        "procedural_risk": "LOW"
+    }
+
+@api_router.post("/play/choice")
+async def make_choice(data: MakeChoiceRequest, user=Depends(get_current_user)):
+    session = await db.play_sessions.find_one({"id": data.session_id, "user_id": user["id"]}, {"_id": 0})
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    if session.get("ended_at"):
+        raise HTTPException(status_code=400, detail="Session already ended")
+    
+    case = await db.cases.find_one({"id": session["case_id"]}, {"_id": 0})
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    
+    # Find the scene and choice
+    current_scene = next((s for s in case["scenes"] if s["id"] == data.scene_id), None)
+    if not current_scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+    
+    choice = next((c for c in current_scene["choices"] if c["id"] == data.choice_id), None)
+    if not choice:
+        raise HTTPException(status_code=404, detail="Choice not found")
+    
+    # Check required clues
+    for req_clue in choice.get("require_clues", []):
+        if req_clue not in session.get("clues_collected", []):
+            raise HTTPException(status_code=400, detail=f"Missing required clue: {req_clue}")
+    
+    # Update session
+    new_score = session.get("score", 0) + choice.get("score_delta", 0)
+    new_clues = list(set(session.get("clues_collected", []) + choice.get("add_clues", [])))
+    
+    # Calculate procedural risk
+    risk_points = session.get("risk_points", 0)
+    risk_map = {"none": 0, "low": 1, "medium": 3, "high": 5}
+    risk_points += risk_map.get(choice.get("risk_flag", "none"), 0)
+    
+    if risk_points >= 8:
+        new_risk = "HIGH"
+    elif risk_points >= 4:
+        new_risk = "MEDIUM"
+    else:
+        new_risk = "LOW"
+    
+    # Log event
+    event_doc = {
+        "id": str(uuid.uuid4()),
+        "session_id": data.session_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "scene_id": data.scene_id,
+        "choice_id": data.choice_id,
+        "score_after": new_score,
+        "clues_after": new_clues,
+        "risk_after": new_risk
+    }
+    await db.event_logs.insert_one(event_doc)
+    
+    # Update session
+    await db.play_sessions.update_one(
+        {"id": data.session_id},
+        {"$set": {
+            "current_scene_id": choice["next_scene_id"],
+            "score": new_score,
+            "clues_collected": new_clues,
+            "procedural_risk": new_risk,
+            "risk_points": risk_points
+        }}
+    )
+    
+    # Get next scene
+    next_scene = next((s for s in case["scenes"] if s["id"] == choice["next_scene_id"]), None)
+    
+    return {
+        "score": new_score,
+        "clues_collected": new_clues,
+        "procedural_risk": new_risk,
+        "next_scene": next_scene
+    }
+
+@api_router.post("/play/accuse")
+async def make_accusation(data: AccusationRequest, user=Depends(get_current_user)):
+    session = await db.play_sessions.find_one({"id": data.session_id, "user_id": user["id"]}, {"_id": 0})
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    case = await db.cases.find_one({"id": session["case_id"]}, {"_id": 0})
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    
+    # Validate clues count
+    if len(data.clue_ids) < 3:
+        return {
+            "success": False,
+            "message": "Insufficient evidence. You need at least 3 clues to support your accusation.",
+            "continue_investigation": True
+        }
+    
+    # Check if clues are valid
+    player_clues = session.get("clues_collected", [])
+    valid_clues = [c for c in data.clue_ids if c in player_clues]
+    if len(valid_clues) < 3:
+        return {
+            "success": False,
+            "message": "Some of the clues you selected were not collected. Please select clues from your evidence.",
+            "continue_investigation": True
+        }
+    
+    # Find the suspect
+    suspect = next((s for s in case["suspects"] if s["id"] == data.suspect_id), None)
+    if not suspect:
+        raise HTTPException(status_code=404, detail="Suspect not found")
+    
+    # Determine outcome
+    is_correct = suspect.get("is_guilty", False)
+    risk = session.get("procedural_risk", "LOW")
+    
+    # Calculate CP
+    base_cp = 0
+    if is_correct and risk != "HIGH":
+        # CLOSED (GOOD)
+        ending_type = "CLOSED_GOOD"
+        ending = next((e for e in case["endings"] if e["type"] == "CLOSED_GOOD"), None)
+        base_cp = ending.get("cp_base", 30) if ending else 30
+        # Bonus for clues used
+        base_cp += min(len(valid_clues) * 2, 10)
+        # Bonus for low risk
+        if risk == "LOW":
+            base_cp += 5
+    else:
+        # COMPROMISED (BAD)
+        ending_type = "COMPROMISED_BAD"
+        ending = next((e for e in case["endings"] if e["type"] == "COMPROMISED_BAD"), None)
+        base_cp = ending.get("cp_base", 5) if ending else 5
+        if risk == "HIGH":
+            base_cp -= 10
+    
+    final_score = session.get("score", 0) + base_cp
+    
+    # Update session
+    await db.play_sessions.update_one(
+        {"id": data.session_id},
+        {"$set": {
+            "ended_at": datetime.now(timezone.utc).isoformat(),
+            "ending_type": ending_type,
+            "final_score": final_score,
+            "accused_suspect_id": data.suspect_id,
+            "accusation_clues": data.clue_ids
+        }}
+    )
+    
+    # Update user CP
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$inc": {"career_points": base_cp}}
+    )
+    
+    # Get updated level
+    updated_user = await db.users.find_one({"id": user["id"]}, {"_id": 0})
+    new_level, new_title = get_level_info(updated_user.get("career_points", 0))
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {"level": new_level, "level_title": new_title}}
+    )
+    
+    ending = next((e for e in case["endings"] if e["type"] == ending_type), None)
+    
+    return {
+        "success": True,
+        "correct_accusation": is_correct,
+        "ending_type": ending_type,
+        "ending_title": ending.get("title", ending_type) if ending else ending_type,
+        "ending_narration": ending.get("narration", "") if ending else "",
+        "career_points_earned": base_cp,
+        "final_score": final_score,
+        "procedural_risk": risk
+    }
+
+# ============== AI INTERROGATION ==============
+
+@api_router.post("/play/interrogate")
+async def interrogate_suspect(data: InterrogationRequest, user=Depends(get_current_user)):
+    session = await db.play_sessions.find_one({"id": data.session_id, "user_id": user["id"]}, {"_id": 0})
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    case = await db.cases.find_one({"id": session["case_id"]}, {"_id": 0})
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    
+    suspect = next((s for s in case["suspects"] if s["id"] == data.suspect_id), None)
+    if not suspect:
+        raise HTTPException(status_code=404, detail="Suspect not found")
+    
+    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="AI service not configured")
+    
+    chat = LlmChat(
+        api_key=api_key,
+        session_id=f"{data.session_id}_{data.suspect_id}",
+        system_message=f"""You are {suspect['name']}, a {suspect['age']}-year-old {suspect['role']} being interviewed by an FBI agent.
+
+Your background:
+- Role: {suspect['role']}
+- Alibi: {suspect['alibi_summary']}
+- Notes: {suspect['risk_notes']}
+- Are you guilty: {'Yes, but hide it carefully' if suspect.get('is_guilty') else 'No'}
+
+Rules:
+- Stay in character at all times
+- Be realistic - show nervousness, evasiveness, or confidence as appropriate
+- If guilty, deflect and mislead subtly without being obviously deceptive
+- You may request a lawyer if pressed too hard
+- Give partial answers, pause, show emotion
+- Never reveal guilt directly
+- Keep responses under 150 words
+- Respond as the suspect would in a real FBI interview"""
+    ).with_model("openai", "gpt-5.2")
+    
+    try:
+        response = await chat.send_message(UserMessage(text=f"FBI Agent: {data.question}"))
+        return {
+            "suspect_name": suspect["name"],
+            "response": response
+        }
+    except Exception as e:
+        logging.error(f"Interrogation error: {e}")
+        raise HTTPException(status_code=500, detail="Interrogation failed")
+
+@api_router.post("/play/notes")
+async def save_notes(session_id: str, notes: str, user=Depends(get_current_user)):
+    await db.play_sessions.update_one(
+        {"id": session_id, "user_id": user["id"]},
+        {"$set": {"notes": notes}}
+    )
+    return {"message": "Notes saved"}
+
+# ============== ANALYTICS (OWNER) ==============
+
+@api_router.get("/owner/analytics/overview")
+async def get_analytics_overview(user=Depends(get_owner_user)):
+    # Total players
+    total_players = await db.users.count_documents({"role": "player"})
+    
+    # Active today
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    active_today = await db.play_sessions.distinct("user_id", {
+        "started_at": {"$gte": today_start.isoformat()}
+    })
+    
+    # Total play sessions
+    total_sessions = await db.play_sessions.count_documents({})
+    
+    # Completion rate
+    completed_sessions = await db.play_sessions.count_documents({"ended_at": {"$ne": None}})
+    completion_rate = (completed_sessions / total_sessions * 100) if total_sessions > 0 else 0
+    
+    # Ending distribution
+    closed_count = await db.play_sessions.count_documents({"ending_type": "CLOSED_GOOD"})
+    compromised_count = await db.play_sessions.count_documents({"ending_type": "COMPROMISED_BAD"})
+    
+    # Top cases by plays
+    pipeline = [
+        {"$group": {"_id": "$case_id", "plays": {"$sum": 1}}},
+        {"$sort": {"plays": -1}},
+        {"$limit": 5}
+    ]
+    top_cases = await db.play_sessions.aggregate(pipeline).to_list(5)
+    
+    # Subscription stats
+    active_subs = await db.users.count_documents({"subscription_status": "active"})
+    
+    return {
+        "total_players": total_players,
+        "active_today": len(active_today),
+        "total_sessions": total_sessions,
+        "completion_rate": round(completion_rate, 1),
+        "ending_distribution": {
+            "closed": closed_count,
+            "compromised": compromised_count
+        },
+        "top_cases": top_cases,
+        "active_subscriptions": active_subs
+    }
+
+@api_router.get("/owner/analytics/cases/{case_id}")
+async def get_case_analytics(case_id: str, user=Depends(get_owner_user)):
+    # Sessions for this case
+    sessions = await db.play_sessions.find({"case_id": case_id}, {"_id": 0}).to_list(10000)
+    
+    total_plays = len(sessions)
+    completed = sum(1 for s in sessions if s.get("ended_at"))
+    
+    # Average score
+    scores = [s.get("final_score", 0) for s in sessions if s.get("final_score")]
+    avg_score = sum(scores) / len(scores) if scores else 0
+    
+    # Choice frequency
+    events = await db.event_logs.find(
+        {"session_id": {"$in": [s["id"] for s in sessions]}},
+        {"_id": 0}
+    ).to_list(100000)
+    
+    choice_counts = {}
+    scene_dropoffs = {}
+    for event in events:
+        choice_id = event.get("choice_id")
+        scene_id = event.get("scene_id")
+        choice_counts[choice_id] = choice_counts.get(choice_id, 0) + 1
+        scene_dropoffs[scene_id] = scene_dropoffs.get(scene_id, 0) + 1
+    
+    return {
+        "total_plays": total_plays,
+        "completed": completed,
+        "completion_rate": (completed / total_plays * 100) if total_plays > 0 else 0,
+        "avg_score": round(avg_score, 1),
+        "choice_frequency": choice_counts,
+        "scene_activity": scene_dropoffs
+    }
+
+@api_router.get("/owner/analytics/leaderboard")
+async def get_leaderboard(user=Depends(get_owner_user)):
+    players = await db.users.find(
+        {"role": "player"},
+        {"_id": 0, "id": 1, "username": 1, "career_points": 1, "level": 1, "level_title": 1}
+    ).sort("career_points", -1).limit(50).to_list(50)
+    return players
+
+@api_router.get("/owner/analytics/export")
+async def export_analytics(user=Depends(get_owner_user)):
+    sessions = await db.play_sessions.find({}, {"_id": 0}).to_list(100000)
+    import csv
+    import io
+    
+    output = io.StringIO()
+    if sessions:
+        writer = csv.DictWriter(output, fieldnames=sessions[0].keys())
+        writer.writeheader()
+        writer.writerows(sessions)
+    
+    return {"csv_data": output.getvalue()}
+
+# ============== LEADERBOARD (PUBLIC) ==============
+
+@api_router.get("/leaderboard")
+async def public_leaderboard(user=Depends(get_current_user)):
+    players = await db.users.find(
+        {"role": "player"},
+        {"_id": 0, "id": 1, "username": 1, "career_points": 1, "level": 1, "level_title": 1}
+    ).sort("career_points", -1).limit(100).to_list(100)
+    return players
+
+# ============== SUBSCRIPTION / STRIPE ==============
+
+SUBSCRIPTION_PACKAGES = {
+    "monthly": 5.00,
+    "yearly": 50.00
+}
+
+@api_router.post("/payments/checkout")
+async def create_checkout(data: CheckoutRequest, request: Request, user=Depends(get_current_user)):
+    if data.package_type not in SUBSCRIPTION_PACKAGES:
+        raise HTTPException(status_code=400, detail="Invalid package type")
+    
+    amount = SUBSCRIPTION_PACKAGES[data.package_type]
+    api_key = os.environ.get("STRIPE_API_KEY")
+    
+    host_url = data.origin_url.rstrip("/")
+    webhook_url = f"{str(request.base_url).rstrip('/')}/api/webhook/stripe"
+    
+    stripe_checkout = StripeCheckout(api_key=api_key, webhook_url=webhook_url)
+    
+    success_url = f"{host_url}/subscription/success?session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{host_url}/subscription"
+    
+    checkout_request = CheckoutSessionRequest(
+        amount=amount,
+        currency="usd",
+        success_url=success_url,
+        cancel_url=cancel_url,
+        metadata={
+            "user_id": user["id"],
+            "package_type": data.package_type
+        }
+    )
+    
+    session = await stripe_checkout.create_checkout_session(checkout_request)
+    
+    # Create payment transaction record
+    tx_doc = {
+        "id": str(uuid.uuid4()),
+        "session_id": session.session_id,
+        "user_id": user["id"],
+        "amount": amount,
+        "currency": "usd",
+        "package_type": data.package_type,
+        "payment_status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.payment_transactions.insert_one(tx_doc)
+    
+    return {"url": session.url, "session_id": session.session_id}
+
+@api_router.get("/payments/status/{session_id}")
+async def get_payment_status(session_id: str, user=Depends(get_current_user)):
+    api_key = os.environ.get("STRIPE_API_KEY")
+    stripe_checkout = StripeCheckout(api_key=api_key, webhook_url="")
+    
+    status = await stripe_checkout.get_checkout_status(session_id)
+    
+    # Update transaction
+    if status.payment_status == "paid":
+        tx = await db.payment_transactions.find_one({"session_id": session_id}, {"_id": 0})
+        if tx and tx.get("payment_status") != "completed":
+            await db.payment_transactions.update_one(
+                {"session_id": session_id},
+                {"$set": {"payment_status": "completed"}}
+            )
+            
+            # Update user subscription
+            package_type = tx.get("package_type", "monthly")
+            if package_type == "yearly":
+                expires = datetime.now(timezone.utc) + timedelta(days=365)
+            else:
+                expires = datetime.now(timezone.utc) + timedelta(days=30)
+            
+            await db.users.update_one(
+                {"id": user["id"]},
+                {"$set": {
+                    "subscription_status": "active",
+                    "subscription_expires": expires.isoformat(),
+                    "subscription_type": package_type
+                }}
+            )
+    
+    return {
+        "status": status.status,
+        "payment_status": status.payment_status
+    }
+
+@api_router.post("/webhook/stripe")
+async def stripe_webhook(request: Request):
+    body = await request.body()
+    signature = request.headers.get("Stripe-Signature")
+    
+    api_key = os.environ.get("STRIPE_API_KEY")
+    stripe_checkout = StripeCheckout(api_key=api_key, webhook_url="")
+    
+    try:
+        webhook_response = await stripe_checkout.handle_webhook(body, signature)
+        
+        if webhook_response.payment_status == "paid":
+            session_id = webhook_response.session_id
+            metadata = webhook_response.metadata
+            
+            user_id = metadata.get("user_id")
+            package_type = metadata.get("package_type", "monthly")
+            
+            await db.payment_transactions.update_one(
+                {"session_id": session_id},
+                {"$set": {"payment_status": "completed"}}
+            )
+            
+            if package_type == "yearly":
+                expires = datetime.now(timezone.utc) + timedelta(days=365)
+            else:
+                expires = datetime.now(timezone.utc) + timedelta(days=30)
+            
+            await db.users.update_one(
+                {"id": user_id},
+                {"$set": {
+                    "subscription_status": "active",
+                    "subscription_expires": expires.isoformat(),
+                    "subscription_type": package_type
+                }}
+            )
+        
+        return {"received": True}
+    except Exception as e:
+        logging.error(f"Webhook error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+# ============== OWNER USER MANAGEMENT ==============
+
+@api_router.get("/owner/users")
+async def get_users(user=Depends(get_owner_user)):
+    users = await db.users.find(
+        {"role": "player"},
+        {"_id": 0, "password": 0}
+    ).to_list(1000)
+    return users
+
+# ============== INIT OWNER ==============
+
+@api_router.post("/init/owner")
+async def init_owner():
+    existing = await db.users.find_one({"role": "owner"})
+    if existing:
+        return {"message": "Owner already exists"}
+    
+    user_id = str(uuid.uuid4())
+    owner_doc = {
+        "id": user_id,
+        "username": "admin",
+        "email": "admin@casefiles.fbi",
+        "password": hash_password("admin123"),
+        "role": "owner",
+        "career_points": 0,
+        "level": 1,
+        "level_title": "ADMINISTRATOR",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.users.insert_one(owner_doc)
+    return {"message": "Owner created", "email": "admin@casefiles.fbi", "password": "admin123"}
+
+# ============== SETUP ==============
+
+# Mount uploads directory
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+
+# Include router
 app.include_router(api_router)
 
 app.add_middleware(
@@ -77,7 +1209,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
