@@ -1170,6 +1170,129 @@ async def get_users(user=Depends(get_owner_user)):
     ).to_list(1000)
     return users
 
+# ============== REVENUE & STRIPE CONNECT ==============
+
+@api_router.get("/owner/revenue")
+async def get_revenue(user=Depends(get_owner_user)):
+    # Get owner's Stripe connect status
+    owner = await db.users.find_one({"id": user["id"]}, {"_id": 0})
+    stripe_connected = owner.get("stripe_account_id") is not None
+    
+    # Calculate revenue from transactions
+    transactions = await db.payment_transactions.find(
+        {"payment_status": "completed"},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    
+    total_revenue = sum(tx.get("amount", 0) for tx in transactions)
+    
+    # This month's revenue
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    this_month = sum(
+        tx.get("amount", 0) for tx in transactions 
+        if tx.get("created_at") and datetime.fromisoformat(tx["created_at"].replace("Z", "+00:00")) >= month_start
+    )
+    
+    # Pending payout (simplified - in real scenario this would come from Stripe API)
+    pending_payout = total_revenue * 0.1  # Example: 10% pending
+    
+    return {
+        "stripe_connected": stripe_connected,
+        "total_revenue": total_revenue,
+        "this_month": this_month,
+        "pending_payout": pending_payout,
+        "transactions": transactions[:20]  # Last 20 transactions
+    }
+
+@api_router.post("/owner/stripe/connect")
+async def connect_stripe_account(request: Request, user=Depends(get_owner_user)):
+    """
+    Initialize Stripe Connect onboarding for the owner to receive payouts.
+    This creates a Stripe Connect account and returns the onboarding URL.
+    """
+    import stripe
+    
+    api_key = os.environ.get("STRIPE_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="Stripe not configured")
+    
+    stripe.api_key = api_key
+    
+    try:
+        # Check if owner already has a Stripe account
+        owner = await db.users.find_one({"id": user["id"]}, {"_id": 0})
+        
+        if owner.get("stripe_account_id"):
+            # Account exists, create new onboarding link
+            account_link = stripe.AccountLink.create(
+                account=owner["stripe_account_id"],
+                refresh_url=f"{request.headers.get('origin', '')}/owner/revenue",
+                return_url=f"{request.headers.get('origin', '')}/owner/revenue",
+                type="account_onboarding",
+            )
+            return {"url": account_link.url}
+        
+        # Create new Stripe Connect Express account
+        account = stripe.Account.create(
+            type="express",
+            country="US",
+            email=user["email"],
+            capabilities={
+                "card_payments": {"requested": True},
+                "transfers": {"requested": True},
+            },
+            business_type="individual",
+            metadata={
+                "owner_id": user["id"]
+            }
+        )
+        
+        # Save account ID to database
+        await db.users.update_one(
+            {"id": user["id"]},
+            {"$set": {"stripe_account_id": account.id}}
+        )
+        
+        # Create onboarding link
+        account_link = stripe.AccountLink.create(
+            account=account.id,
+            refresh_url=f"{request.headers.get('origin', '')}/owner/revenue",
+            return_url=f"{request.headers.get('origin', '')}/owner/revenue",
+            type="account_onboarding",
+        )
+        
+        return {"url": account_link.url}
+        
+    except stripe.error.StripeError as e:
+        logging.error(f"Stripe Connect error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/owner/stripe/dashboard")
+async def get_stripe_dashboard_link(user=Depends(get_owner_user)):
+    """
+    Get a link to the Stripe Express dashboard for the owner to manage payouts.
+    """
+    import stripe
+    
+    api_key = os.environ.get("STRIPE_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="Stripe not configured")
+    
+    stripe.api_key = api_key
+    
+    owner = await db.users.find_one({"id": user["id"]}, {"_id": 0})
+    
+    if not owner.get("stripe_account_id"):
+        raise HTTPException(status_code=400, detail="Stripe account not connected")
+    
+    try:
+        login_link = stripe.Account.create_login_link(owner["stripe_account_id"])
+        return {"url": login_link.url}
+    except stripe.error.StripeError as e:
+        logging.error(f"Stripe dashboard error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # ============== INIT OWNER ==============
 
 @api_router.post("/init/owner")
