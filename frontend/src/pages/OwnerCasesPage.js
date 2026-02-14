@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Fingerprint, LayoutDashboard, FileText, Users, BarChart3, 
-  LogOut, Plus, Edit, Trash2, Eye, CheckCircle, XCircle, Wand2
+  LogOut, Plus, Edit, Trash2, Eye, CheckCircle, XCircle, Wand2, DollarSign
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
