@@ -8,6 +8,7 @@ Build "CASE FILES" - a hyper-realistic FBI investigation game platform featuring
 - AI-powered case generation and suspect interrogation using OpenAI GPT-5.2
 - Subscription system ($5/mo, $50/yr) with Stripe integration
 - Persistent career progression with levels and career points
+- Real money payouts via Stripe Connect for subscription revenue
 
 ### User Personas
 1. **Players**: Crime/detective enthusiasts, true crime fans, ages 18-45 who enjoy procedural investigation games
@@ -22,6 +23,7 @@ Build "CASE FILES" - a hyper-realistic FBI investigation game platform featuring
 - Career progression with levels
 - Subscription-based monetization
 - Owner portal for case management
+- Stripe Connect for owner payouts
 
 ---
 
@@ -38,6 +40,7 @@ Build "CASE FILES" - a hyper-realistic FBI investigation game platform featuring
 - ✅ Stripe subscription checkout and webhook handling
 - ✅ Analytics endpoints (overview, per-case, leaderboard)
 - ✅ Media upload to local file storage
+- ✅ Stripe Connect endpoints for owner payouts
 
 ### Frontend (React + Tailwind + shadcn/ui)
 - ✅ Landing page with FBI noir theme
@@ -66,7 +69,10 @@ Build "CASE FILES" - a hyper-realistic FBI investigation game platform featuring
   - Clues (load-bearing/misdirection flags)
   - Endings (CLOSED_GOOD, COMPROMISED_BAD)
 - ✅ AI case generation wizard
-- ✅ Analytics dashboard
+- ✅ Analytics dashboard with leaderboard
+- ✅ Players management page
+- ✅ Revenue & Payouts page with Stripe Connect
+- ✅ Navigation bug FIXED (Feb 13, 2026)
 
 ### Sample Case Created
 - "The Riverside Conspiracy" - Complete 10-scene homicide case with:
@@ -86,6 +92,8 @@ Build "CASE FILES" - a hyper-realistic FBI investigation game platform featuring
 - ✅ Authentication system
 - ✅ Case management
 - ✅ Subscription system
+- ✅ Owner portal navigation (FIXED)
+- ✅ Stripe Connect for payouts
 
 ### P1 - High Priority
 - [ ] Media attachments per scene (crime scene photos, evidence images)
@@ -115,7 +123,7 @@ Build "CASE FILES" - a hyper-realistic FBI investigation game platform featuring
 - **Backend**: FastAPI (Python), Motor (async MongoDB driver)
 - **Database**: MongoDB
 - **AI**: OpenAI GPT-5.2 via emergentintegrations
-- **Payments**: Stripe via emergentintegrations
+- **Payments**: Stripe via emergentintegrations (subscriptions + Connect payouts)
 - **Auth**: JWT tokens
 
 ### Key Credentials
@@ -124,6 +132,9 @@ Build "CASE FILES" - a hyper-realistic FBI investigation game platform featuring
 ### API Routes
 - `/api/auth/*` - Player authentication
 - `/api/owner/*` - Owner-only endpoints
+- `/api/owner/revenue` - Revenue data
+- `/api/owner/stripe/connect` - Stripe Connect onboarding
+- `/api/owner/stripe/dashboard` - Stripe Express dashboard link
 - `/api/cases` - Published cases for players
 - `/api/play/*` - Gameplay endpoints
 - `/api/payments/*` - Stripe subscription
@@ -131,9 +142,20 @@ Build "CASE FILES" - a hyper-realistic FBI investigation game platform featuring
 
 ---
 
+## Changelog
+
+### Feb 13, 2026
+- **FIXED**: Owner portal navigation bug - Added missing routes for `/owner/analytics`, `/owner/users`, `/owner/revenue` in App.js
+- **ADDED**: Revenue link to sidebar navigation in OwnerDashboardPage and OwnerCasesPage
+- **VERIFIED**: All owner portal pages (Dashboard, Cases, Analytics, Players, Revenue) navigate correctly
+- **VERIFIED**: Stripe Connect UI displays correctly on Revenue page
+
+---
+
 ## Next Action Items
-1. Add image upload functionality to case editor
-2. Implement case validation before publishing
-3. Create more sample cases using AI generation
-4. Add detailed player progress tracking
-5. Implement session replay for failed cases
+1. Test Stripe Connect onboarding flow in production environment
+2. Add image upload functionality to case editor
+3. Implement case validation before publishing
+4. Create more sample cases using AI generation
+5. Add detailed player progress tracking
+6. Implement session replay for failed cases
