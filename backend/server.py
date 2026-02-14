@@ -494,8 +494,13 @@ async def upload_file(file: UploadFile = File(...), user=Depends(get_owner_user)
     return {"id": file_id, "url": f"/uploads/{new_filename}"}
 
 @api_router.get("/owner/media")
-async def get_media_library(user=Depends(get_owner_user)):
-    media = await db.media.find({}, {"_id": 0}).to_list(1000)
+async def get_media_library(user=Depends(get_owner_user), limit: int = 100, skip: int = 0):
+    # Add pagination for media library
+    max_limit = min(limit, 200)
+    media = await db.media.find(
+        {}, 
+        {"_id": 0, "id": 1, "original_name": 1, "url": 1, "content_type": 1, "created_at": 1}
+    ).sort("created_at", -1).skip(skip).limit(max_limit).to_list(max_limit)
     return media
 
 # ============== AI CASE GENERATION ==============
