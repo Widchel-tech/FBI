@@ -20,12 +20,10 @@ export default function OwnerCasesPage() {
   const [deleteModal, setDeleteModal] = useState(null);
 
   useEffect(() => {
-    if (!isOwner) {
-      navigate('/owner/login');
-      return;
+    if (token) {
+      fetchCases();
     }
-    fetchCases();
-  }, [isOwner, navigate]);
+  }, [token]);
 
   const fetchCases = async () => {
     try {
