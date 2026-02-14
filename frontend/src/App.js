@@ -128,6 +128,21 @@ function AppRoutes() {
           <CaseEditorPage />
         </OwnerRoute>
       } />
+      <Route path="/owner/analytics" element={
+        <OwnerRoute>
+          <OwnerAnalyticsPage />
+        </OwnerRoute>
+      } />
+      <Route path="/owner/users" element={
+        <OwnerRoute>
+          <OwnerUsersPage />
+        </OwnerRoute>
+      } />
+      <Route path="/owner/revenue" element={
+        <OwnerRoute>
+          <OwnerRevenuePage />
+        </OwnerRoute>
+      } />
       
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/" replace />} />
