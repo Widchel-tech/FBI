@@ -208,6 +208,9 @@ export default function LandingPage() {
             <Link to="/terms" className="text-zinc-600 hover:text-zinc-400 text-xs uppercase tracking-widest">
               Terms
             </Link>
+            <Link to="/owner/login" className="text-zinc-700 hover:text-zinc-500 text-xs uppercase tracking-widest">
+              Admin
+            </Link>
           </div>
         </div>
       </footer>
