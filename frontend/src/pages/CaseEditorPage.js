@@ -771,18 +771,33 @@ export default function CaseEditorPage() {
                       </Button>
                     </div>
                   </div>
-                  <Input
-                    value={clue.label}
-                    onChange={(e) => updateClue(index, 'label', e.target.value)}
-                    placeholder="Clue Label"
-                    className="bg-zinc-950 border-zinc-800 rounded-none text-white"
-                  />
-                  <Textarea
-                    value={clue.description}
-                    onChange={(e) => updateClue(index, 'description', e.target.value)}
-                    placeholder="What the clue reveals..."
-                    className="bg-zinc-950 border-zinc-800 rounded-none text-white h-16"
-                  />
+                  
+                  <div className="flex gap-4">
+                    {/* Clue Image Upload */}
+                    <ImageUpload
+                      value={clue.image_url}
+                      onChange={(url) => updateClue(index, 'image_url', url)}
+                      token={token}
+                      label="Evidence Photo"
+                      previewSize="small"
+                    />
+                    
+                    {/* Clue Details */}
+                    <div className="flex-1 space-y-3">
+                      <Input
+                        value={clue.label}
+                        onChange={(e) => updateClue(index, 'label', e.target.value)}
+                        placeholder="Clue Label"
+                        className="bg-zinc-950 border-zinc-800 rounded-none text-white"
+                      />
+                      <Textarea
+                        value={clue.description}
+                        onChange={(e) => updateClue(index, 'description', e.target.value)}
+                        placeholder="What the clue reveals..."
+                        className="bg-zinc-950 border-zinc-800 rounded-none text-white h-16"
+                      />
+                    </div>
+                  </div>
                 </div>
               ))}
             </TabsContent>
