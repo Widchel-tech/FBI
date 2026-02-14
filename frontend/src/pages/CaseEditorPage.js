@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { 
   Fingerprint, LayoutDashboard, FileText, Users, BarChart3, 
-  LogOut, Save, ArrowLeft, Plus, Trash2, GripVertical, Check, DollarSign, Image
+  LogOut, Save, ArrowLeft, Plus, Trash2, GripVertical, Check, DollarSign, Image, X
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
