@@ -17,6 +17,9 @@ import OwnerDashboardPage from "./pages/OwnerDashboardPage";
 import OwnerCasesPage from "./pages/OwnerCasesPage";
 import CaseEditorPage from "./pages/CaseEditorPage";
 import AIGeneratePage from "./pages/AIGeneratePage";
+import OwnerAnalyticsPage from "./pages/OwnerAnalyticsPage";
+import OwnerUsersPage from "./pages/OwnerUsersPage";
+import OwnerRevenuePage from "./pages/OwnerRevenuePage";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
