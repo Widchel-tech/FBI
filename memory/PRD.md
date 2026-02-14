@@ -96,7 +96,7 @@ Build "CASE FILES" - a hyper-realistic FBI investigation game platform featuring
 - ✅ Stripe Connect for payouts
 
 ### P1 - High Priority
-- [ ] Media attachments per scene (crime scene photos, evidence images)
+- ✅ Media attachments per scene (crime scene photos, evidence images) - COMPLETED
 - [ ] Case validation enforcement before publishing
 - [ ] Player session replay functionality
 - [ ] Export analytics to CSV
