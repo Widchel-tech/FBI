@@ -147,8 +147,11 @@ Build "CASE FILES" - a hyper-realistic FBI investigation game platform featuring
 ### Feb 13, 2026
 - **FIXED**: Owner portal navigation bug - Added missing routes for `/owner/analytics`, `/owner/users`, `/owner/revenue` in App.js
 - **ADDED**: Revenue link to sidebar navigation in OwnerDashboardPage and OwnerCasesPage
+- **ADDED**: Photo upload feature for suspects (portraits), clues (evidence photos), and scenes (crime scene photos)
+- **ADDED**: ImageUpload reusable component with drag-and-drop support
 - **VERIFIED**: All owner portal pages (Dashboard, Cases, Analytics, Players, Revenue) navigate correctly
 - **VERIFIED**: Stripe Connect UI displays correctly on Revenue page
+- **VERIFIED**: File upload API working correctly at `/api/owner/upload`
 
 ---
 
