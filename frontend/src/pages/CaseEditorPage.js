@@ -52,18 +52,14 @@ export default function CaseEditorPage() {
   });
 
   useEffect(() => {
-    if (authLoading) return;
+    if (!token) return;
     
-    if (!isOwner) {
-      navigate('/owner/login');
-      return;
-    }
     if (!isNew && caseId) {
       fetchCase();
     } else {
       setPageLoading(false);
     }
-  }, [isOwner, navigate, isNew, caseId, authLoading]);
+  }, [token, isNew, caseId]);
 
   const fetchCase = async () => {
     setPageLoading(true);
