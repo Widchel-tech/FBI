@@ -106,7 +106,7 @@ export default function AIGeneratePage() {
       {/* Sidebar */}
       <aside className="w-64 border-r border-zinc-800 bg-zinc-900/30 flex flex-col">
         <div className="p-6 border-b border-zinc-800">
-          <Link to="/" className="flex items-center gap-3">
+          <Link to="/owner/dashboard" className="flex items-center gap-3">
             <Fingerprint className="w-6 h-6 text-white" />
             <span className="font-heading text-lg tracking-widest text-white">CASE FILES</span>
           </Link>
