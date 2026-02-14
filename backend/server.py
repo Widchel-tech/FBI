@@ -354,8 +354,10 @@ async def create_case(data: CaseCreate, user=Depends(get_owner_user)):
     return CaseResponse(**case_doc)
 
 @api_router.get("/owner/cases", response_model=List[CaseResponse])
-async def get_owner_cases(user=Depends(get_owner_user)):
-    cases = await db.cases.find({}, {"_id": 0}).to_list(1000)
+async def get_owner_cases(user=Depends(get_owner_user), limit: int = 100, skip: int = 0):
+    # Add pagination with reasonable defaults
+    max_limit = min(limit, 100)
+    cases = await db.cases.find({}, {"_id": 0}).skip(skip).limit(max_limit).to_list(max_limit)
     return [CaseResponse(**c) for c in cases]
 
 @api_router.get("/owner/cases/{case_id}", response_model=CaseResponse)
