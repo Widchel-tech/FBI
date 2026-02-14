@@ -39,6 +39,13 @@ const ProtectedRoute = ({ children }) => {
 // Owner Protected Route
 const OwnerRoute = ({ children }) => {
   const { user, loading, isOwner } = useAuth();
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    if (!loading && (!user || !isOwner)) {
+      navigate('/owner/login', { replace: true });
+    }
+  }, [loading, user, isOwner, navigate]);
   
   if (loading) {
     return (
@@ -49,7 +56,7 @@ const OwnerRoute = ({ children }) => {
   }
   
   if (!user || !isOwner) {
-    return <Navigate to="/owner/login" replace />;
+    return null;
   }
   
   return children;
