@@ -105,14 +105,6 @@ export default function LandingPage() {
               Start Investigation
               <ChevronRight className="w-4 h-4 ml-2" />
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => navigate('/owner/login')}
-              className="border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-900 hover:border-zinc-600 rounded-none uppercase tracking-widest text-sm h-12 px-10"
-              data-testid="owner-portal-btn"
-            >
-              Owner Portal
-            </Button>
           </div>
 
           {/* Stats */}
