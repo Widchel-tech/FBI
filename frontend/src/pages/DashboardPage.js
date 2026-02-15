@@ -245,9 +245,20 @@ export default function DashboardPage() {
                   }`}
                   data-testid={`case-card-${caseItem.id}`}
                 >
+                  {/* Victim Photo */}
+                  {caseItem.victim_photo_url && (
+                    <div className="h-40 overflow-hidden">
+                      <img 
+                        src={getImageUrl(caseItem.victim_photo_url)} 
+                        alt="Case" 
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+                  
                   {/* Free Badge */}
                   {caseItem.is_free && (
-                    <div className="absolute -top-3 left-4 bg-emerald-600 text-white px-3 py-1 font-mono text-xs uppercase tracking-widest">
+                    <div className={`absolute ${caseItem.victim_photo_url ? 'top-2' : '-top-3'} left-4 bg-emerald-600 text-white px-3 py-1 font-mono text-xs uppercase tracking-widest z-20`}>
                       Free
                     </div>
                   )}
