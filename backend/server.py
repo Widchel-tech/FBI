@@ -499,18 +499,18 @@ async def upload_file(file: UploadFile = File(...), user=Depends(get_owner_user)
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
     
-    # Store media record
+    # Store media record - use /api/uploads path for ingress compatibility
     media_doc = {
         "id": file_id,
         "original_name": file.filename,
         "stored_name": new_filename,
-        "url": f"/uploads/{new_filename}",
+        "url": f"/api/uploads/{new_filename}",
         "content_type": file.content_type,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.media.insert_one(media_doc)
     
-    return {"id": file_id, "url": f"/uploads/{new_filename}"}
+    return {"id": file_id, "url": f"/api/uploads/{new_filename}"}
 
 @api_router.get("/owner/media")
 async def get_media_library(user=Depends(get_owner_user), limit: int = 100, skip: int = 0):
