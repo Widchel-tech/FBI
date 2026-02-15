@@ -51,7 +51,8 @@ export default function ImageUpload({
         }
       });
 
-      const imageUrl = `${process.env.REACT_APP_BACKEND_URL}${response.data.url}`;
+      // Store only the relative URL path - this makes images portable across domains
+      const imageUrl = response.data.url;
       onChange(imageUrl);
       toast.success('Image uploaded');
     } catch (error) {
