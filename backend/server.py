@@ -1547,8 +1547,9 @@ async def init_owner():
 
 # ============== SETUP ==============
 
-# Mount uploads directory
+# Mount uploads directory at both paths for compatibility
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+app.mount("/api/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="api_uploads")
 
 # Include router
 app.include_router(api_router)
