@@ -448,6 +448,20 @@ export default function GameplayPage() {
                         </button>
                       );
                     })}
+                    
+                    {/* Back Button */}
+                    {sceneHistory.length > 0 && (
+                      <button
+                        onClick={goBack}
+                        className="w-full mt-4 p-3 text-left border border-zinc-800 hover:border-amber-600 bg-zinc-900/30 hover:bg-amber-900/20 transition-all flex items-center gap-3"
+                        data-testid="back-button"
+                      >
+                        <ArrowLeft className="w-4 h-4 text-amber-500" />
+                        <span className="text-amber-500 font-mono text-sm uppercase tracking-widest">
+                          Go Back & Try Different Choice
+                        </span>
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
