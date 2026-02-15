@@ -488,14 +488,29 @@ export default function GameplayPage() {
                         data-testid={`clue-${clueId}`}
                       >
                         <div className="flex items-start gap-3">
-                          <div className={`w-8 h-8 flex items-center justify-center border ${
-                            clue.load_bearing ? 'border-amber-500 bg-amber-500/10' : 'border-zinc-700 bg-zinc-800'
-                          }`}>
-                            <FileText className={`w-4 h-4 ${clue.load_bearing ? 'text-amber-500' : 'text-zinc-500'}`} />
-                          </div>
+                          {clue.image_url ? (
+                            <div className="w-16 h-16 flex-shrink-0 border border-zinc-700 overflow-hidden">
+                              <img 
+                                src={getImageUrl(clue.image_url)} 
+                                alt={clue.label}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          ) : (
+                            <div className={`w-8 h-8 flex items-center justify-center border ${
+                              clue.load_bearing ? 'border-amber-500 bg-amber-500/10' : 'border-zinc-700 bg-zinc-800'
+                            }`}>
+                              <FileText className={`w-4 h-4 ${clue.load_bearing ? 'text-amber-500' : 'text-zinc-500'}`} />
+                            </div>
+                          )}
                           <div>
                             <h4 className="text-white font-mono text-sm">{clue.label}</h4>
                             <p className="text-zinc-400 text-sm mt-1">{clue.description}</p>
+                            {clue.load_bearing && (
+                              <span className="inline-block mt-2 px-2 py-0.5 bg-amber-500/20 border border-amber-500/50 text-amber-500 text-xs font-mono">
+                                KEY EVIDENCE
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
