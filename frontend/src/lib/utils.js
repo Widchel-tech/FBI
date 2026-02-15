@@ -7,6 +7,17 @@ export function cn(...inputs) {
 
 export const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+// Helper to get full image URL - handles both relative and absolute URLs
+export const getImageUrl = (url) => {
+  if (!url) return null;
+  // If already a full URL, return as-is
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  // Otherwise, prepend the backend URL
+  return `${process.env.REACT_APP_BACKEND_URL}${url}`;
+};
+
 export const getLevelColor = (level) => {
   const colors = {
     1: 'text-zinc-400',
