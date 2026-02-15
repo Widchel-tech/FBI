@@ -1145,40 +1145,72 @@ async def create_checkout(data: CheckoutRequest, request: Request, user=Depends(
     api_key = os.environ.get("STRIPE_API_KEY")
     
     host_url = data.origin_url.rstrip("/")
-    webhook_url = f"{str(request.base_url).rstrip('/')}/api/webhook/stripe"
     
-    stripe_checkout = StripeCheckout(api_key=api_key, webhook_url=webhook_url)
+    # Import stripe directly for subscription support
+    import stripe
+    stripe.api_key = api_key
     
     success_url = f"{host_url}/subscription/success?session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url = f"{host_url}/subscription"
     
-    checkout_request = CheckoutSessionRequest(
-        amount=amount,
-        currency="usd",
-        success_url=success_url,
-        cancel_url=cancel_url,
-        metadata={
+    # Determine billing interval based on package type
+    interval = "month" if data.package_type == "monthly" else "year"
+    interval_count = 1
+    
+    try:
+        # Create checkout session with recurring subscription
+        session = stripe.checkout.Session.create(
+            mode="subscription",
+            payment_method_types=["card"],
+            line_items=[{
+                "price_data": {
+                    "currency": "usd",
+                    "product_data": {
+                        "name": f"CASE FILES - {'Monthly' if data.package_type == 'monthly' else 'Annual'} Subscription",
+                        "description": "Unlimited access to all FBI investigation cases"
+                    },
+                    "unit_amount": int(amount * 100),  # Stripe uses cents
+                    "recurring": {
+                        "interval": interval,
+                        "interval_count": interval_count
+                    }
+                },
+                "quantity": 1
+            }],
+            success_url=success_url,
+            cancel_url=cancel_url,
+            metadata={
+                "user_id": user["id"],
+                "package_type": data.package_type
+            },
+            subscription_data={
+                "metadata": {
+                    "user_id": user["id"],
+                    "package_type": data.package_type
+                }
+            }
+        )
+        
+        # Create payment transaction record
+        tx_doc = {
+            "id": str(uuid.uuid4()),
+            "session_id": session.id,
             "user_id": user["id"],
-            "package_type": data.package_type
+            "amount": amount,
+            "currency": "usd",
+            "package_type": data.package_type,
+            "payment_status": "pending",
+            "subscription_id": None,
+            "is_recurring": True,
+            "billing_interval": interval,
+            "created_at": datetime.now(timezone.utc).isoformat()
         }
-    )
-    
-    session = await stripe_checkout.create_checkout_session(checkout_request)
-    
-    # Create payment transaction record
-    tx_doc = {
-        "id": str(uuid.uuid4()),
-        "session_id": session.session_id,
-        "user_id": user["id"],
-        "amount": amount,
-        "currency": "usd",
-        "package_type": data.package_type,
-        "payment_status": "pending",
-        "created_at": datetime.now(timezone.utc).isoformat()
-    }
-    await db.payment_transactions.insert_one(tx_doc)
-    
-    return {"url": session.url, "session_id": session.session_id}
+        await db.payment_transactions.insert_one(tx_doc)
+        
+        return {"url": session.url, "session_id": session.id}
+        
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=500, detail=f"Stripe error: {str(e)}")
 
 @api_router.get("/payments/status/{session_id}")
 async def get_payment_status(session_id: str, user=Depends(get_current_user)):
