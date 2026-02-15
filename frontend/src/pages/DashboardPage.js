@@ -235,12 +235,33 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {cases.map((caseItem) => (
+              {cases.map((caseItem, index) => (
                 <div
                   key={caseItem.id}
-                  className="border border-zinc-800 bg-zinc-900/30 hover:border-zinc-700 transition-all group"
+                  className={`border bg-zinc-900/30 transition-all group relative ${
+                    caseItem.is_locked 
+                      ? 'border-zinc-800/50 opacity-80' 
+                      : 'border-zinc-800 hover:border-zinc-700'
+                  }`}
                   data-testid={`case-card-${caseItem.id}`}
                 >
+                  {/* Free Badge */}
+                  {caseItem.is_free && (
+                    <div className="absolute -top-3 left-4 bg-emerald-600 text-white px-3 py-1 font-mono text-xs uppercase tracking-widest">
+                      Free
+                    </div>
+                  )}
+                  
+                  {/* Premium Lock Overlay */}
+                  {caseItem.is_locked && (
+                    <div className="absolute inset-0 bg-zinc-950/60 z-10 flex flex-col items-center justify-center">
+                      <Lock className="w-8 h-8 text-amber-500 mb-2" />
+                      <span className="font-mono text-xs text-amber-500 uppercase tracking-widest">
+                        Premium Case
+                      </span>
+                    </div>
+                  )}
+                  
                   <div className="p-6">
                     <div className="flex items-start justify-between mb-4">
                       <span className="font-mono text-xs text-emerald-500">
@@ -275,12 +296,25 @@ export default function DashboardPage() {
                     </div>
 
                     <Button
-                      onClick={() => navigate(`/play/${caseItem.id}`)}
-                      className="w-full bg-zinc-800 text-white hover:bg-zinc-700 rounded-none uppercase tracking-widest font-bold text-xs h-10 group-hover:bg-white group-hover:text-black transition-colors"
+                      onClick={() => handlePlayCase(caseItem)}
+                      className={`w-full rounded-none uppercase tracking-widest font-bold text-xs h-10 transition-colors ${
+                        caseItem.is_locked
+                          ? 'bg-amber-600 text-white hover:bg-amber-500'
+                          : 'bg-zinc-800 text-white hover:bg-zinc-700 group-hover:bg-white group-hover:text-black'
+                      }`}
                       data-testid={`play-case-${caseItem.id}`}
                     >
-                      Open Case File
-                      <ChevronRight className="w-4 h-4 ml-2" />
+                      {caseItem.is_locked ? (
+                        <>
+                          <Lock className="w-4 h-4 mr-2" />
+                          Unlock with Subscription
+                        </>
+                      ) : (
+                        <>
+                          Open Case File
+                          <ChevronRight className="w-4 h-4 ml-2" />
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>
