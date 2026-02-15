@@ -127,6 +127,7 @@ class EndingModel(BaseModel):
     narration: str
     cp_base: int
     cp_modifiers: Dict[str, int] = {}
+    mugshot_url: Optional[str] = None
 
 class CaseCreate(BaseModel):
     case_id: str  # FBI-HOM-24-001
@@ -135,6 +136,7 @@ class CaseCreate(BaseModel):
     location_county: str
     location_state: str
     victim_overview: str
+    victim_photo_url: Optional[str] = None
     summary: str
     difficulty: int = 1
     time_limit_minutes: int = 15
