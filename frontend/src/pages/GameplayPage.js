@@ -422,8 +422,16 @@ export default function GameplayPage() {
                     data-testid={`suspect-${suspect.id}`}
                   >
                     <div className="flex items-start gap-4">
-                      <div className="w-16 h-16 bg-zinc-800 border border-zinc-700 flex items-center justify-center">
-                        <Users className="w-8 h-8 text-zinc-600" />
+                      <div className="w-16 h-16 bg-zinc-800 border border-zinc-700 flex items-center justify-center overflow-hidden">
+                        {suspect.portrait_url ? (
+                          <img 
+                            src={getImageUrl(suspect.portrait_url)} 
+                            alt={suspect.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <User className="w-8 h-8 text-zinc-600" />
+                        )}
                       </div>
                       <div className="flex-1">
                         <h3 className="font-heading text-lg text-white uppercase">{suspect.name}</h3>
