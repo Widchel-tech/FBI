@@ -1345,15 +1345,6 @@ async def stripe_webhook(request: Request):
                 logger.info(f"Payment failed for subscription: {subscription_id}")
         
         return {"status": "ok"}
-                {"id": user_id},
-                {"$set": {
-                    "subscription_status": "active",
-                    "subscription_expires": expires.isoformat(),
-                    "subscription_type": package_type
-                }}
-            )
-        
-        return {"received": True}
     except Exception as e:
         logging.error(f"Webhook error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
