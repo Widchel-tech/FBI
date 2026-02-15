@@ -413,12 +413,22 @@ export default function CaseEditorPage() {
 
               <div className="space-y-2">
                 <Label className="text-zinc-400 uppercase tracking-widest text-xs">Victim Overview</Label>
-                <Textarea
-                  value={caseData.victim_overview}
-                  onChange={(e) => updateField('victim_overview', e.target.value)}
-                  placeholder="Brief description of the victim..."
-                  className="bg-zinc-900 border-zinc-800 rounded-none text-white h-24"
-                />
+                <div className="flex gap-6">
+                  {/* Victim Photo Upload */}
+                  <ImageUpload
+                    value={caseData.victim_photo_url}
+                    onChange={(url) => updateField('victim_photo_url', url)}
+                    token={token}
+                    label="Victim Photo"
+                    previewSize="medium"
+                  />
+                  <Textarea
+                    value={caseData.victim_overview}
+                    onChange={(e) => updateField('victim_overview', e.target.value)}
+                    placeholder="Brief description of the victim (name, age, occupation, circumstances of death)..."
+                    className="bg-zinc-900 border-zinc-800 rounded-none text-white h-32 flex-1"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-6">
