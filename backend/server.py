@@ -1388,9 +1388,8 @@ async def get_users(user=Depends(get_owner_user), limit: int = 100, skip: int = 
 
 @api_router.get("/owner/revenue")
 async def get_revenue(user=Depends(get_owner_user)):
-    # Get owner's Stripe connect status
-    owner = await db.users.find_one({"id": user["id"]}, {"_id": 0})
-    stripe_connected = owner.get("stripe_account_id") is not None
+    # For standard Stripe accounts, we're always "connected" since payments go directly to the account
+    stripe_connected = True
     
     # Calculate revenue from transactions
     transactions = await db.payment_transactions.find(
