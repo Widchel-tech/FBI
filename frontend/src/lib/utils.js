@@ -14,7 +14,11 @@ export const getImageUrl = (url) => {
   if (url.startsWith('http://') || url.startsWith('https://')) {
     return url;
   }
-  // Otherwise, prepend the backend URL
+  // Convert old /uploads/ paths to /api/uploads/ for ingress compatibility
+  if (url.startsWith('/uploads/')) {
+    url = '/api' + url;
+  }
+  // Prepend the backend URL for relative paths
   return `${process.env.REACT_APP_BACKEND_URL}${url}`;
 };
 
