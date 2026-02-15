@@ -33,6 +33,9 @@ export default function GameplayPage() {
   const [notes, setNotes] = useState('');
   const [showNotebook, setShowNotebook] = useState(false);
   
+  // Scene history for back navigation
+  const [sceneHistory, setSceneHistory] = useState([]);
+  
   // Interrogation state
   const [showInterrogation, setShowInterrogation] = useState(false);
   const [selectedSuspect, setSelectedSuspect] = useState(null);
