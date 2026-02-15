@@ -684,9 +684,16 @@ async def get_case_for_play(case_id: str, user=Depends(get_current_user)):
 
 @api_router.post("/play/start")
 async def start_play_session(data: PlaySessionStart, user=Depends(get_current_user)):
-    case = await db.cases.find_one({"id": data.case_id, "published": True}, {"_id": 0})
+    # Search by both 'id' and 'case_id' fields for compatibility
+    case = await db.cases.find_one(
+        {"$or": [{"id": data.case_id}, {"case_id": data.case_id}], "published": True}, 
+        {"_id": 0}
+    )
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
+    
+    # Use the actual case id for session tracking
+    actual_case_id = case.get("id")
     
     # Check if this is a premium case and user doesn't have subscription
     all_cases = await db.cases.find(
@@ -695,7 +702,7 @@ async def start_play_session(data: PlaySessionStart, user=Depends(get_current_us
     ).sort("created_at", 1).to_list(100)
     
     # Find the index of this case (first case is free)
-    case_index = next((i for i, c in enumerate(all_cases) if c["id"] == data.case_id), -1)
+    case_index = next((i for i, c in enumerate(all_cases) if c["id"] == actual_case_id), -1)
     is_free_case = (case_index == 0)
     is_subscribed = user.get("subscription_status") == "active"
     
@@ -711,7 +718,7 @@ async def start_play_session(data: PlaySessionStart, user=Depends(get_current_us
     session_doc = {
         "id": session_id,
         "user_id": user["id"],
-        "case_id": data.case_id,
+        "case_id": actual_case_id,
         "current_scene_id": first_scene["id"] if first_scene else None,
         "score": 0,
         "clues_collected": [],
