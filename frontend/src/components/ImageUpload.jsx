@@ -24,6 +24,17 @@ export default function ImageUpload({
     large: "w-48 h-48"
   };
 
+  // Helper to get full image URL - handles both relative and absolute URLs
+  const getImageUrl = (url) => {
+    if (!url) return null;
+    // If already a full URL, return as-is
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    // Otherwise, prepend the backend URL
+    return `${process.env.REACT_APP_BACKEND_URL}${url}`;
+  };
+
   const handleFileSelect = async (file) => {
     if (!file) return;
     
