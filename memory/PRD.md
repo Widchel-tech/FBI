@@ -146,6 +146,12 @@ Build "CASE FILES" - a hyper-realistic FBI investigation game platform featuring
 ## Changelog
 
 ### Feb 15, 2026
+- **FIXED**: Image uploads now display correctly across the app
+  - Changed image URL paths from `/uploads/` to `/api/uploads/` for ingress compatibility
+  - Added `getImageUrl()` helper function in `/app/frontend/src/lib/utils.js`
+  - Updated DashboardPage to show victim photos on case cards
+  - Updated GameplayPage to show suspect portraits and clue images
+  - Fixed existing database records to use correct URL paths
 - **UPDATED**: Subscription pricing changed from $5/mo + $50/yr to **$10.99/mo + $100/yr**
 - **UPDATED**: Yearly savings badge updated to "SAVE $32" (reflects 12 × $10.99 = $131.88 vs $100)
 - **FIXED**: Stripe API error handling for production deployment
@@ -153,6 +159,7 @@ Build "CASE FILES" - a hyper-realistic FBI investigation game platform featuring
   - Changed error responses from 500 to 503 for service unavailability
   - Added `AuthenticationError` handling for invalid API keys
   - User-friendly error messages instead of raw Stripe errors
+- **FIXED**: Revenue page - removed confusing Stripe Connect button, now shows direct link to Stripe Dashboard
 - Backend `SUBSCRIPTION_PACKAGES` updated in server.py
 - Frontend `SubscriptionPage.js` pricing display updated
 - Freemium model in place: first case free, subscription required for additional cases
