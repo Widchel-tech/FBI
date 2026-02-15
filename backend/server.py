@@ -1395,6 +1395,31 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+@app.on_event("startup")
+async def startup_event():
+    """Initialize owner admin user on startup if not exists"""
+    try:
+        existing = await db.users.find_one({"role": "owner"})
+        if not existing:
+            user_id = str(uuid.uuid4())
+            owner_doc = {
+                "id": user_id,
+                "username": "admin",
+                "email": "admin@casefiles.fbi",
+                "password": hash_password("admin123"),
+                "role": "owner",
+                "career_points": 0,
+                "level": 1,
+                "level_title": "ADMINISTRATOR",
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.users.insert_one(owner_doc)
+            logger.info("Owner admin user created: admin@casefiles.fbi")
+        else:
+            logger.info("Owner admin user already exists")
+    except Exception as e:
+        logger.error(f"Error initializing owner: {e}")
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
