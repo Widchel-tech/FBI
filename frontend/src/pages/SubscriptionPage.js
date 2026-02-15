@@ -77,12 +77,14 @@ export default function SubscriptionPage() {
       name: 'Monthly',
       price: 5,
       period: '/month',
+      billing: 'Billed monthly, cancel anytime',
       features: [
         'Access to all cases',
         'AI Interrogation system',
         'Career progression tracking',
         'Leaderboard access',
-        'New cases monthly'
+        'New cases monthly',
+        'Auto-renews monthly'
       ]
     },
     {
@@ -91,12 +93,14 @@ export default function SubscriptionPage() {
       price: 50,
       period: '/year',
       badge: 'SAVE $10',
+      billing: 'Billed annually, cancel anytime',
       features: [
         'Everything in Monthly',
         '2 months FREE',
         'Priority access to new cases',
         'Exclusive Task Force cases',
-        'Advanced analytics'
+        'Advanced analytics',
+        'Auto-renews yearly'
       ]
     }
   ];
