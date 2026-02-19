@@ -873,21 +873,86 @@ async def make_choice(data: MakeChoiceRequest, user=Depends(get_current_user)):
         if req_clue not in session.get("clues_collected", []):
             raise HTTPException(status_code=400, detail=f"Missing required clue: {req_clue}")
     
-    # Update session
+    # Check legal requirements
+    legal_req = choice.get("legal_requirement")
+    warrants_obtained = session.get("warrants_obtained", [])
+    procedural_violations = session.get("procedural_violations", [])
+    
+    if legal_req == "warrant" and "search_warrant" not in warrants_obtained:
+        # Add procedural violation if warrant required but not obtained
+        if "illegal_search" not in procedural_violations:
+            procedural_violations.append("illegal_search")
+    
+    # Update session metrics
     new_score = session.get("score", 0) + choice.get("score_delta", 0)
     new_clues = list(set(session.get("clues_collected", []) + choice.get("add_clues", [])))
     
-    # Calculate procedural risk
+    # Track evidence legally obtained vs suppressed
+    evidence_legally_obtained = session.get("evidence_legally_obtained", [])
+    evidence_suppressed = session.get("evidence_suppressed", [])
+    
+    for clue_id in choice.get("add_clues", []):
+        clue_data = next((c for c in case.get("clues", []) if c["id"] == clue_id), None)
+        if clue_data:
+            if clue_data.get("legally_obtained", True) and not choice.get("procedural_violation"):
+                if clue_id not in evidence_legally_obtained:
+                    evidence_legally_obtained.append(clue_id)
+            else:
+                if clue_id not in evidence_suppressed:
+                    evidence_suppressed.append(clue_id)
+    
+    # Handle procedural violations from choice
+    if choice.get("procedural_violation"):
+        violation_type = choice["procedural_violation"]
+        if violation_type not in procedural_violations:
+            procedural_violations.append(violation_type)
+    
+    # Calculate procedural risk based on violations
     risk_points = session.get("risk_points", 0)
     risk_map = {"none": 0, "low": 1, "medium": 3, "high": 5}
     risk_points += risk_map.get(choice.get("risk_flag", "none"), 0)
     
-    if risk_points >= 8:
+    # Add risk from procedural violations
+    for violation in procedural_violations:
+        if violation in PROCEDURAL_VIOLATIONS:
+            risk_points += PROCEDURAL_VIOLATIONS[violation]["risk_increase"] // 10
+    
+    if risk_points >= 12:
+        new_risk = "CRITICAL"
+    elif risk_points >= 8:
         new_risk = "HIGH"
     elif risk_points >= 4:
         new_risk = "MEDIUM"
     else:
         new_risk = "LOW"
+    
+    # Calculate conviction probability
+    conviction_prob = session.get("conviction_probability", 10)
+    conviction_prob += choice.get("conviction_delta", 0)
+    
+    # Add conviction probability based on evidence strength
+    for clue_id in choice.get("add_clues", []):
+        clue_data = next((c for c in case.get("clues", []) if c["id"] == clue_id), None)
+        if clue_data and clue_id in evidence_legally_obtained:
+            conviction_prob += clue_data.get("evidence_strength", 5)
+    
+    # Reduce conviction probability for procedural violations
+    conviction_prob -= len(procedural_violations) * 5
+    conviction_prob = max(0, min(100, conviction_prob))  # Clamp 0-100
+    
+    # Calculate evidence strength
+    evidence_strength = session.get("evidence_strength", 0)
+    evidence_strength += choice.get("evidence_strength_delta", 0)
+    for clue_id in choice.get("add_clues", []):
+        clue_data = next((c for c in case.get("clues", []) if c["id"] == clue_id), None)
+        if clue_data:
+            evidence_strength += clue_data.get("evidence_strength", 5)
+    
+    # Calculate XP earned
+    xp_earned = session.get("xp_earned", 0)
+    xp_earned += choice.get("score_delta", 0) * 2  # XP is 2x score delta
+    if not choice.get("procedural_violation"):
+        xp_earned += 5  # Bonus for clean procedure
     
     # Log event
     event_doc = {
@@ -898,7 +963,9 @@ async def make_choice(data: MakeChoiceRequest, user=Depends(get_current_user)):
         "choice_id": data.choice_id,
         "score_after": new_score,
         "clues_after": new_clues,
-        "risk_after": new_risk
+        "risk_after": new_risk,
+        "conviction_prob": conviction_prob,
+        "evidence_strength": evidence_strength
     }
     await db.event_logs.insert_one(event_doc)
     
@@ -910,7 +977,13 @@ async def make_choice(data: MakeChoiceRequest, user=Depends(get_current_user)):
             "score": new_score,
             "clues_collected": new_clues,
             "procedural_risk": new_risk,
-            "risk_points": risk_points
+            "risk_points": risk_points,
+            "conviction_probability": conviction_prob,
+            "evidence_strength": evidence_strength,
+            "evidence_legally_obtained": evidence_legally_obtained,
+            "evidence_suppressed": evidence_suppressed,
+            "procedural_violations": procedural_violations,
+            "xp_earned": xp_earned
         }}
     )
     
