@@ -96,6 +96,13 @@ export default function GameplayPage() {
       setCluesCollected(response.data.clues_collected);
       setProceduralRisk(response.data.procedural_risk);
       setTimeRemaining(response.data.case.time_limit_minutes * 60);
+      
+      // Set new enhanced state from response
+      setConvictionProbability(response.data.conviction_probability || 10);
+      setEvidenceStrength(response.data.evidence_strength || 0);
+      setXpEarned(response.data.xp_earned || 0);
+      setUserRank(response.data.user_rank || 'ANALYST');
+      setThreatLevel(response.data.threat_level || 'moderate');
     } catch (error) {
       console.error('Failed to start game:', error);
       toast.error('Failed to start case');
@@ -132,11 +139,12 @@ export default function GameplayPage() {
     setEndingResult({
       success: false,
       correct_accusation: false,
-      ending_type: 'COMPROMISED_BAD',
+      ending_type: 'COMPROMISED',
       ending_title: 'Time Expired',
       ending_narration: 'The investigation window has closed. Without a conclusive resolution, the case remains open, the suspect at large. The Bureau marks this as an operational failure.',
       career_points_earned: 0,
-      procedural_risk: proceduralRisk
+      procedural_risk: proceduralRisk,
+      conviction_probability: convictionProbability
     });
     toast.error('Time expired! Case compromised.');
   };
