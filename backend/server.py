@@ -121,6 +121,10 @@ class SceneModel(BaseModel):
     is_accusation_scene: bool = False
     choices: List[ChoiceModel] = []
     media_urls: List[str] = []
+    # New CGI scene fields
+    scene_type: str = "investigation"  # crime_scene, evidence_lab, interrogation, briefing, tactical, courtroom
+    ambient_audio: str = "office"  # office, outdoor, rain, sirens, lab, courtroom
+    camera_style: str = "standard"  # standard, dramatic, surveillance, documentary
 
 class ClueModel(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -129,15 +133,28 @@ class ClueModel(BaseModel):
     load_bearing: bool = False
     misdirection: bool = False
     image_url: Optional[str] = None
+    # New evidence system fields
+    evidence_category: str = "physical"  # physical, digital, financial, behavioral, witness
+    evidence_type: str = "generic"  # dna, fingerprint, ballistics, metadata, transaction, statement
+    chain_of_custody: bool = True  # Was proper procedure followed?
+    legally_obtained: bool = True  # Can be suppressed if false
+    evidence_strength: int = 10  # 1-25 contribution to case strength
+    requires_warrant: bool = False
+    requires_consent: bool = False
 
 class EndingModel(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    type: str  # CLOSED_GOOD, COMPROMISED_BAD
+    type: str  # CLOSED, DISMISSED, COMPROMISED, ESCALATED
     title: str
     narration: str
     cp_base: int
     cp_modifiers: Dict[str, int] = {}
     mugshot_url: Optional[str] = None
+    # New ending requirements
+    min_conviction_probability: int = 0  # Minimum required for this ending
+    max_procedural_risk: str = "critical"  # Maximum allowed risk level
+    required_evidence_count: int = 0  # Minimum legally obtained evidence pieces
+    case_file_photo_url: Optional[str] = None
 
 class CaseCreate(BaseModel):
     case_id: str  # FBI-HOM-24-001

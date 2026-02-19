@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CASE FILES</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="bg"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">⌁</div>
+      <div>
+        <div class="brand-title">CASE FILES</div>
+        <div class="brand-sub">CLASSIFIED // FOR AUTHORIZED PERSONNEL ONLY</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button id="btnDashboard" class="btn ghost">Dashboard</button>
+      <button id="btnHome" class="btn ghost">Home</button>
+    </nav>
+  </header>
+
+  <main class="wrap">
+    <!-- HOME -->
+    <section id="screenHome" class="screen">
+      <div class="hero">
+        <h1>CASE FILES</h1>
+        <p>
+          Step into the shoes of an FBI investigator. Solve hyper-realistic cases where every decision shapes the outcome.
+          One wrong move and the case is compromised.
+        </p>
+
+        <div class="hero-actions">
+          <button id="btnStart" class="btn primary">START INVESTIGATION →</button>
+        </div>
+
+        <div class="stats">
+          <div class="stat">
+            <div id="statCases" class="stat-num">0</div>
+            <div class="stat-label">CASES</div>
+          </div>
+          <div class="stat">
+            <div class="stat-num">5</div>
+            <div class="stat-label">RANKS</div>
+          </div>
+          <div class="stat">
+            <div class="stat-num">∞</div>
+            <div class="stat-label">OUTCOMES</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DASHBOARD -->
+    <section id="screenDashboard" class="screen hidden">
+      <div class="panel">
+        <h2>DASHBOARD</h2>
+        <p class="muted">Choose a case. Your rank affects what’s available.</p>
+
+        <div class="row">
+          <div class="card">
+            <div class="label">Career Rank</div>
+            <select id="rankSelect" class="select">
+              <option value="ANALYST">Analyst</option>
+              <option value="AGENT">Field Agent</option>
+              <option value="SENIOR_AGENT">Senior Agent</option>
+              <option value="SUPERVISOR">Supervisor</option>
+              <option value="TASK_FORCE_LEAD">Task Force Lead</option>
+            </select>
+          </div>
+
+          <div class="card">
+            <div class="label">Active Profile</div>
+            <div class="big" id="profileSummary">ANALYST • XP 0</div>
+            <div class="muted small">XP saves in your browser (no login yet).</div>
+          </div>
+        </div>
+
+        <div id="caseList" class="grid"></div>
+      </div>
+    </section>
+
+    <!-- CASE PLAY -->
+    <section id="screenCase" class="screen hidden">
+      <div class="panel">
+        <div class="case-top">
+          <div>
+            <div id="caseHeader" class="case-header">CASE</div>
+            <div id="caseMeta" class="muted small"></div>
+          </div>
+          <div class="pill-row">
+            <div class="pill">Score: <span id="uiScore">0</span></div>
+            <div class="pill">Risk: <span id="uiRisk">0</span></div>
+            <div class="pill">Conviction: <span id="uiConviction">50</span>%</div>
+            <div class="pill">XP: <span id="uiXP">0</span></div>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <button class="tab active" data-tab="briefing">Briefing</button>
+          <button class="tab" data-tab="suspects">Suspects</button>
+          <button class="tab" data-tab="clues">Clues</button>
+          <button class="tab" data-tab="tools">Tools</button>
+        </div>
+
+        <div class="tabpanes">
+          <div id="tab-briefing" class="tabpane">
+            <h3 id="sceneTitle">Scene</h3>
+            <p id="sceneText" class="scene-text"></p>
+            <div id="choices" class="choices"></div>
+          </div>
+
+          <div id="tab-suspects" class="tabpane hidden">
+            <h3>Suspects</h3>
+            <div id="suspectsPane" class="list"></div>
+          </div>
+
+          <div id="tab-clues" class="tabpane hidden">
+            <h3>Clues</h3>
+            <div id="cluesPane" class="list"></div>
+          </div>
+
+          <div id="tab-tools" class="tabpane hidden">
+            <h3>Tools</h3>
+            <div class="muted">Tools unlock with rank. (Starter build includes simple warrant gate + evidence logging.)</div>
+            <div id="toolsPane" class="list"></div>
+          </div>
+        </div>
+
+        <div class="footer-actions">
+          <button id="btnExitCase" class="btn ghost">Exit Case</button>
+          <button id="btnResetCase" class="btn danger">Reset This Case</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="cases.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
