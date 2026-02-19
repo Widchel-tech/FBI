@@ -276,9 +276,14 @@
             <div class="modal-content modal-lg">
                 <div class="modal-header">
                     <h2><i class="fas fa-comments"></i> Interrogation: <span id="interrogation-suspect-name"></span></h2>
-                    <button class="btn btn-ghost" onclick="closeModal('interrogation-modal')">
-                        <i class="fas fa-times"></i>
-                    </button>
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <div id="ai-indicator" class="ai-indicator" style="display: none;">
+                            <i class="fas fa-robot"></i> AI ENABLED
+                        </div>
+                        <button class="btn btn-ghost" onclick="closeModal('interrogation-modal')">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="interrogation-status">
                     <div class="status-item">
