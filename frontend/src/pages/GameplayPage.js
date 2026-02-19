@@ -157,7 +157,9 @@ export default function GameplayPage() {
           scene: currentScene,
           score: score,
           cluesCollected: [...cluesCollected],
-          proceduralRisk: proceduralRisk
+          proceduralRisk: proceduralRisk,
+          convictionProbability: convictionProbability,
+          evidenceStrength: evidenceStrength
         }]);
       }
       
@@ -174,6 +176,14 @@ export default function GameplayPage() {
       setCluesCollected(response.data.clues_collected);
       setProceduralRisk(response.data.procedural_risk);
       setCurrentScene(response.data.next_scene);
+      
+      // Update new tracking metrics
+      setConvictionProbability(response.data.conviction_probability || convictionProbability);
+      setEvidenceStrength(response.data.evidence_strength || evidenceStrength);
+      setXpEarned(response.data.xp_earned || xpEarned);
+      setProceduralViolations(response.data.procedural_violations || []);
+      setEvidenceLegallyObtained(response.data.evidence_legally_obtained || []);
+      setEvidenceSuppressed(response.data.evidence_suppressed || []);
       
       if (response.data.next_scene?.is_accusation_scene) {
         setShowAccusation(true);
@@ -192,9 +202,39 @@ export default function GameplayPage() {
     setScore(previousState.score);
     setCluesCollected(previousState.cluesCollected);
     setProceduralRisk(previousState.proceduralRisk);
+    setConvictionProbability(previousState.convictionProbability || convictionProbability);
+    setEvidenceStrength(previousState.evidenceStrength || evidenceStrength);
     setSceneHistory(prev => prev.slice(0, -1));
     
     toast.info('Returned to previous scene');
+  };
+
+  // Give Miranda rights to suspect
+  const giveMiranda = async (suspectId) => {
+    try {
+      await axios.post(`${API_URL}/play/miranda?session_id=${session.session_id}&suspect_id=${suspectId}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` }}
+      );
+      setMirandaGiven(prev => [...prev, suspectId]);
+      toast.success('Miranda rights administered');
+    } catch (error) {
+      toast.error('Failed to administer Miranda rights');
+    }
+  };
+
+  // Request warrant
+  const requestWarrant = async (warrantType) => {
+    try {
+      const response = await axios.post(`${API_URL}/play/warrant?session_id=${session.session_id}&warrant_type=${warrantType}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` }}
+      );
+      setWarrantsObtained(prev => [...prev, warrantType]);
+      toast.success(response.data.message);
+    } catch (error) {
+      toast.error('Warrant request denied');
+    }
   };
 
   const interrogateSuspect = async () => {
@@ -206,7 +246,8 @@ export default function GameplayPage() {
         {
           session_id: session.session_id,
           suspect_id: selectedSuspect.id,
-          question: interrogationQuestion
+          question: interrogationQuestion,
+          approach: interrogationApproach
         },
         { headers: { Authorization: `Bearer ${token}` }}
       );
@@ -214,9 +255,27 @@ export default function GameplayPage() {
       setInterrogationHistory(prev => [...prev, {
         question: interrogationQuestion,
         response: response.data.response,
-        suspect: response.data.suspect_name
+        suspect: response.data.suspect_name,
+        approach: interrogationApproach,
+        cooperation: response.data.cooperation_level,
+        lawyerRequested: response.data.lawyer_requested,
+        suspectBreaking: response.data.suspect_breaking
       }]);
       setInterrogationQuestion('');
+      
+      // Update cooperation level for this suspect
+      setSuspectCooperation(prev => ({
+        ...prev,
+        [selectedSuspect.id]: response.data.cooperation_level
+      }));
+      
+      // Show warnings
+      if (response.data.lawyer_requested) {
+        toast.warning('Suspect has requested a lawyer!');
+      }
+      if (response.data.suspect_breaking) {
+        toast.success('Suspect is showing cracks in their story!');
+      }
     } catch (error) {
       toast.error('Interrogation failed');
     } finally {
