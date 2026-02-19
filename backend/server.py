@@ -994,7 +994,13 @@ async def make_choice(data: MakeChoiceRequest, user=Depends(get_current_user)):
         "score": new_score,
         "clues_collected": new_clues,
         "procedural_risk": new_risk,
-        "next_scene": next_scene
+        "next_scene": next_scene,
+        "conviction_probability": conviction_prob,
+        "evidence_strength": evidence_strength,
+        "xp_earned": xp_earned,
+        "procedural_violations": procedural_violations,
+        "evidence_legally_obtained": evidence_legally_obtained,
+        "evidence_suppressed": evidence_suppressed
     }
 
 @api_router.post("/play/accuse")
