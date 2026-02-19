@@ -790,6 +790,13 @@ async def start_play_session(data: PlaySessionStart, user=Depends(get_current_us
     session_id = str(uuid.uuid4())
     first_scene = case["scenes"][0] if case.get("scenes") else None
     
+    # Calculate initial evidence strength from case clues
+    initial_evidence_strength = 0
+    
+    # Get user's rank for perks
+    user_level = user.get("level", 1)
+    user_rank = CAREER_RANKS.get(user_level, CAREER_RANKS[1])
+    
     session_doc = {
         "id": session_id,
         "user_id": user["id"],
@@ -799,21 +806,44 @@ async def start_play_session(data: PlaySessionStart, user=Depends(get_current_us
         "clues_collected": [],
         "procedural_risk": "LOW",
         "risk_points": 0,
+        # New tracking fields
+        "conviction_probability": 10,  # Start at 10%
+        "evidence_strength": initial_evidence_strength,
+        "procedural_violations": [],  # List of violation types
+        "evidence_legally_obtained": [],  # Clues that were properly collected
+        "evidence_suppressed": [],  # Clues that can't be used in court
+        "suspect_cooperation": {},  # {suspect_id: cooperation_level}
+        "interrogation_pressure": {},  # {suspect_id: pressure_level}
+        "warrants_obtained": [],  # List of warrant types obtained
+        "miranda_given": [],  # List of suspect_ids who received Miranda
+        "xp_earned": 0,
         "started_at": datetime.now(timezone.utc).isoformat(),
         "ended_at": None,
         "ending_type": None,
         "final_score": None,
-        "notes": ""
+        "notes": "",
+        "user_rank": user_rank["title"],
+        "user_perks": user_rank["perks"]
     }
     await db.play_sessions.insert_one(session_doc)
     
+    # Remove guilty flag from suspects for response
+    case_for_response = case.copy()
+    for suspect in case_for_response.get("suspects", []):
+        suspect.pop("is_guilty", None)
+    
     return {
         "session_id": session_id,
-        "case": case,
+        "case": case_for_response,
         "current_scene": first_scene,
         "score": 0,
         "clues_collected": [],
-        "procedural_risk": "LOW"
+        "procedural_risk": "LOW",
+        "conviction_probability": 10,
+        "evidence_strength": 0,
+        "xp_earned": 0,
+        "user_rank": user_rank["title"],
+        "threat_level": case.get("threat_level", "moderate")
     }
 
 @api_router.post("/play/choice")
