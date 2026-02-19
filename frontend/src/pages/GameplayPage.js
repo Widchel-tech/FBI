@@ -338,8 +338,12 @@ export default function GameplayPage() {
         <div className="max-w-2xl w-full">
           <div className={`p-8 border ${endingResult.ending_type === 'CLOSED_GOOD' ? 'border-emerald-800 bg-emerald-950/20' : 'border-red-800 bg-red-950/20'}`}>
             <div className="text-center mb-8">
-              <div className={`font-mono text-xs tracking-widest mb-4 ${endingResult.ending_type === 'CLOSED_GOOD' ? 'text-emerald-500' : 'text-red-500'}`}>
-                CASE STATUS
+              <div className={`font-mono text-xs tracking-widest mb-4 ${
+                endingResult.ending_type === 'CLOSED' ? 'text-emerald-500' : 
+                endingResult.ending_type === 'ESCALATED' ? 'text-blue-500' :
+                endingResult.ending_type === 'DISMISSED' ? 'text-amber-500' : 'text-red-500'
+              }`}>
+                CASE STATUS: {endingResult.ending_type}
               </div>
               <h1 className="font-heading text-4xl text-white uppercase tracking-wide">
                 {endingResult.ending_title}
@@ -350,7 +354,7 @@ export default function GameplayPage() {
               {endingResult.ending_narration}
             </p>
             
-            <div className="grid grid-cols-3 gap-4 mb-8 text-center">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 text-center">
               <div className="p-4 bg-zinc-900/50 border border-zinc-800">
                 <div className="font-mono text-xs text-zinc-500 mb-1">VERDICT</div>
                 <div className={`font-heading text-lg ${endingResult.correct_accusation ? 'text-emerald-500' : 'text-red-500'}`}>
@@ -358,18 +362,32 @@ export default function GameplayPage() {
                 </div>
               </div>
               <div className="p-4 bg-zinc-900/50 border border-zinc-800">
-                <div className="font-mono text-xs text-zinc-500 mb-1">CP EARNED</div>
+                <div className="font-mono text-xs text-zinc-500 mb-1">XP EARNED</div>
                 <div className="font-heading text-lg text-white">
                   {endingResult.career_points_earned > 0 ? '+' : ''}{endingResult.career_points_earned}
                 </div>
               </div>
               <div className="p-4 bg-zinc-900/50 border border-zinc-800">
-                <div className="font-mono text-xs text-zinc-500 mb-1">PROCEDURE</div>
-                <div className={`font-heading text-lg ${getRiskColor(endingResult.procedural_risk)}`}>
-                  {endingResult.procedural_risk}
+                <div className="font-mono text-xs text-zinc-500 mb-1">CONVICTION %</div>
+                <div className={`font-heading text-lg ${endingResult.conviction_probability >= 70 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                  {endingResult.conviction_probability || 0}%
+                </div>
+              </div>
+              <div className="p-4 bg-zinc-900/50 border border-zinc-800">
+                <div className="font-mono text-xs text-zinc-500 mb-1">VIOLATIONS</div>
+                <div className={`font-heading text-lg ${endingResult.procedural_violations_count > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                  {endingResult.procedural_violations_count || 0}
                 </div>
               </div>
             </div>
+
+            {/* New rank display */}
+            {endingResult.new_title && (
+              <div className="mb-6 p-4 border border-zinc-700 bg-zinc-900/30 text-center">
+                <div className="font-mono text-xs text-zinc-500 mb-2">CURRENT RANK</div>
+                <div className="font-heading text-xl text-emerald-500">{endingResult.new_title}</div>
+              </div>
+            )}
             
             <div className="flex gap-4">
               <Button
