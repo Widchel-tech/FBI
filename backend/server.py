@@ -231,6 +231,7 @@ class InterrogationRequest(BaseModel):
     session_id: str
     suspect_id: str
     question: str
+    approach: str = "professional"  # professional, aggressive, sympathetic, strategic_silence
 
 class AIGenerateCaseRequest(BaseModel):
     case_type: str
@@ -239,6 +240,39 @@ class AIGenerateCaseRequest(BaseModel):
     suspects_count: int = 4
     scenes_count: int = 12
     tone: str = "realistic"
+    case_length: str = "standard"  # short, standard, major
+
+# Career Rank System
+CAREER_RANKS = {
+    1: {"title": "ANALYST", "min_cp": 0, "perks": []},
+    2: {"title": "FIELD AGENT", "min_cp": 100, "perks": ["faster_warrant"]},
+    3: {"title": "SENIOR AGENT", "min_cp": 300, "perks": ["faster_warrant", "advanced_forensics"]},
+    4: {"title": "SUPERVISOR", "min_cp": 600, "perks": ["faster_warrant", "advanced_forensics", "federal_resources"]},
+    5: {"title": "TASK FORCE LEAD", "min_cp": 1000, "perks": ["faster_warrant", "advanced_forensics", "federal_resources", "multi_jurisdiction"]}
+}
+
+# Crime Type Classifications
+CRIME_TYPES = {
+    "HOM": {"name": "Homicide", "threat_default": "high"},
+    "CYB": {"name": "Cybercrime", "threat_default": "moderate"},
+    "TRF": {"name": "Trafficking", "threat_default": "critical"},
+    "FIN": {"name": "Financial Crimes", "threat_default": "moderate"},
+    "TER": {"name": "Domestic Terrorism", "threat_default": "critical"},
+    "KID": {"name": "Kidnapping", "threat_default": "critical"},
+    "COR": {"name": "Corruption", "threat_default": "high"},
+    "NAR": {"name": "Narcotics", "threat_default": "high"},
+    "ORG": {"name": "Organized Crime", "threat_default": "high"}
+}
+
+# Procedural Violations
+PROCEDURAL_VIOLATIONS = {
+    "illegal_search": {"risk_increase": 25, "description": "Search conducted without warrant or consent"},
+    "miranda_failure": {"risk_increase": 30, "description": "Failed to read Miranda rights before custodial interrogation"},
+    "evidence_contamination": {"risk_increase": 20, "description": "Evidence chain of custody broken"},
+    "unauthorized_force": {"risk_increase": 35, "description": "Excessive or unauthorized force used"},
+    "premature_arrest": {"risk_increase": 15, "description": "Arrest made without probable cause"},
+    "witness_coercion": {"risk_increase": 25, "description": "Witness statement obtained through coercion"}
+}
     difficulty: int = 2
 
 class SubscriptionPackage(BaseModel):
