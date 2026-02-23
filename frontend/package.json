@@ -1,6 +1,7 @@
 {
   "name": "frontend",
   "version": "0.1.0",
+  "homepage": "https://widchel-tech.github.io/FBI", 
   "private": true,
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
